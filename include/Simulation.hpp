@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "Logger.hpp"
 
 class Simulation {
@@ -14,6 +15,8 @@ public:
 
     void run(double endTime);
     void tick();
+
+    static void addTraveler(const std::string& from, const std::string& to);
 
     double getCurrentTime() const { return currentTime; }
 };

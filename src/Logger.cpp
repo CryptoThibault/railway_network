@@ -9,7 +9,7 @@ Logger::Logger(double intervalMinutes) : lastPrintTime(-1), printInterval(interv
     if (mkdir("log", 0755) != 0 && errno != EEXIST) {
         std::cerr << "Error : impossible to create log folder\n";
     }
-    system("rm -f log/*.log");
+    system("rm -f log/*.result");
 }
 
 void Logger::logTrains(double currentTime)
@@ -30,7 +30,7 @@ void Logger::logTrains(double currentTime)
 
 void Logger::logTrain(Train* t, double currentTime)
 {
-    std::ofstream logFile("log/" + t->getName() + "_" + formatTime(t->getDepartureHour()) + ".log", std::ios::app);
+    std::ofstream logFile("log/" + t->getName() + "_" + formatTime(t->getDepartureHour()) + ".result", std::ios::app);
     if (!logFile.is_open()) {
         std::cerr << "Error : impossible log file for "
                   << t->getName() << "\n";

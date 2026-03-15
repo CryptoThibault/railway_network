@@ -1,9 +1,9 @@
 NAME = network
-SRCS = main.cpp Loader.cpp Simulation.cpp Network.cpp  Segment.cpp Train.cpp  \
-	   Motion.cpp Board.cpp Logger.cpp Printer.cpp Traveler.cpp
+SRCS = src/main.cpp src/Loader.cpp src/Simulation.cpp src/Network.cpp src/Segment.cpp src/Train.cpp \
+	   src/Motion.cpp src/Board.cpp src/Logger.cpp src/Printer.cpp src/Traveler.cpp
 OBJS = $(SRCS:.cpp=.o)
 CXX = c++
-CXXFLAGS = -Wall -Wextra -Werror
+CXXFLAGS = -Wall -Wextra -Werror -Iinclude
 all: $(NAME)
 
 $(NAME): $(OBJS)

@@ -59,7 +59,7 @@ double Traveler::computeFastestTravelTime(double departureTime)
 
 double Traveler::getAverageTravelTime() const
 {
-    if (bestTimes.empty()) return -1.0;
+    if (bestTimes.empty()) return  0.55;
     double sum = 0;
     for (double t : bestTimes) sum += t;
     return sum / bestTimes.size();

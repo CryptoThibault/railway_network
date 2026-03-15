@@ -14,7 +14,7 @@ private:
     ~Registry() = default;
 
 public:
-    static Registry& getInstance()
+    inline static Registry& getInstance()
     {
         static Registry instance;
         return instance;

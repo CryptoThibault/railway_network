@@ -1,0 +1,23 @@
+Node Paris
+Node Lyon
+Node London
+
+Rail Paris Lyon 465.0 332.0
+Rail Lyon Marseille 315.0 258.0
+Rail Paris Bruxelles 320.0 260.0
+Rail Bruxelles Amsterdam 210.0 205.0
+Rail Amsterdam Berlin 650.0 425.0
+Rail Berlin Munich 585.0 392.0
+Rail Munich Zurich 315.0 258.0
+Rail Zurich Milan 280.0 240.0
+Rail Milan Rome 600.0 400.0
+Rail Vienna Budapest 243.0 221.0
+Rail Berlin Prague 350.0 275.0
+Rail Prague Vienna 330.0 265.0
+Rail Budapest Rome 1200.0 700.0
+Rail Copenhagen Berlin 610.0 405.0
+Rail Copenhagen Amsterdam 800.0 500.0
+Rail Vienna Milan 800.0 500.0
+Rail Lyon Zurich 410.0 305.0
+Rail Brussels Munich 740.0 470.0
+Rail Marseille Milan 570.0 385.0

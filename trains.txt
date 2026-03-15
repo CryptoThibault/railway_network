@@ -1,0 +1,26 @@
+TrainParis-Lyon 400 0.002 100.0 80.0 Paris Lyon 08h00 00h10
+TrainBerlin-Prague 360 0.002 95.0 75.0 Berlin Prague 07h30 00h12
+TrainCopenhagen-Berlin 620 0.0025 100.0 80.0 Copenhagen Berlin 08h00 00h15
+TrainBruxelles-Amsterdam 200 0.002 90.0 70.0 Bruxelles Amsterdam 08h45 00h10
+TrainMarseille-Milan 580 0.0023 105.0 85.0 Marseille Milan 09h00 00h15
+
+TrainParis-Rome 420 0.002 100.0 80.0 Paris Rome 06h30 00h10
+TrainParis-Berlin 400 0.002 95.0 75.0 Paris Berlin 07h10 00h12
+TrainParis-Milan 410 0.0025 98.0 80.0 Paris Milan 08h00 00h10
+TrainAmsterdam-Rome 450 0.002 105.0 85.0 Amsterdam Rome 07h45 00h12
+TrainBruxelles-Zurich 390 0.002 95.0 75.0 Bruxelles Zurich 08h20 00h10
+TrainBerlin-Rome 470 0.0025 110.0 90.0 Berlin Rome 06h50 00h12
+TrainBerlin-Milan 430 0.002 100.0 80.0 Berlin Milan 07h30 00h10
+TrainCopenhagen-Rome 520 0.0025 105.0 85.0 Copenhagen Rome 06h10 00h15
+TrainCopenhagen-Munich 460 0.002 100.0 80.0 Copenhagen Munich 08h40 00h12
+TrainVienna-Paris 440 0.002 95.0 75.0 Vienna Paris 09h00 00h10
+TrainVienna-Amsterdam 430 0.0025 98.0 80.0 Vienna Amsterdam 10h20 00h12
+TrainVienna-Berlin 410 0.002 95.0 75.0 Vienna Berlin 11h00 00h10
+TrainZurich-Amsterdam 400 0.002 90.0 70.0 Zurich Amsterdam 12h30 00h12
+TrainZurich-Berlin 420 0.002 95.0 75.0 Zurich Berlin 13h10 00h10
+TrainMilan-Amsterdam 470 0.0025 105.0 85.0 Milan Amsterdam 14h20 00h12
+TrainMilan-Copenhagen 480 0.0025 108.0 88.0 Milan Copenhagen 10h00 00h15
+TrainRome-Amsterdam 500 0.003 110.0 90.0 Rome Amsterdam 13h00 00h15
+TrainRome-Paris 480 0.003 105.0 85.0 Rome Paris 15h00 00h15
+TrainBudapest-Paris 460 0.0025 100.0 80.0 Budapest Paris 18h30 00h12
+TrainBudapest-Amsterdam 470 0.0025 105.0 85.0 Budapest Amsterdam 16h20 00h12

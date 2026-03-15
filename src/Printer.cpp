@@ -56,11 +56,13 @@ void Printer::printTrains() {
 void Printer::printHelp() {
     std::cout << "=== Train Simulator Help ===\n\n";
 
-    std::cout << "Input file format:\n\n";
+    std::cout << "Rails file format (first argument):\n\n";
+    std::cout << "Node <StationName>\n";
+    std::cout << "Rail <StationA> <StationB> <LengthKm> <MaxSpeedKmH>\n\n";
 
-    std::cout << "Segment <StationA> <StationB> <LengthKm> <MaxSpeedKmH>\n";
-    std::cout << "Train <Name> <Weight> <FrictionCoef> <MaxAcceleration> <MaxBrakeForce>\n";
-    std::cout << "      <DepartureStation> <ArrivalStation> <HourOfDeparture> <StopDuration>\n\n";
+    std::cout << "Trains file format (second argument):\n\n";
+    std::cout << "<Name> <Weight> <FrictionCoef> <MaxAcceleration> <MaxBrakeForce>\n";
+    std::cout << "<DepartureStation> <ArrivalStation> <HourOfDeparture> <StopDuration>\n\n";
 
     std::cout << "Description of the fields:\n";
     std::cout << "  Segment :\n";
@@ -73,15 +75,15 @@ void Printer::printHelp() {
     std::cout << "    <Name>            : Train name\n";
     std::cout << "    <Weight>          : Weight of the train in tons\n";
     std::cout << "    <FrictionCoef>    : Friction coefficient\n";
-    std::cout << "    <MaxAcceleration> : Maximum acceleration (km/h per tick or m/s² depending on your units)\n";
+    std::cout << "    <MaxAcceleration> : Maximum acceleration\n";
     std::cout << "    <MaxBrakeForce>   : Maximum braking force\n";
     std::cout << "    <DepartureStation>: Name of the departure station\n";
     std::cout << "    <ArrivalStation>  : Name of the arrival station\n";
-    std::cout << "    <HourOfDeparture> : Departure time in HHhMM format (e.g., 08h00)\n";
-    std::cout << "    <StopDuration>    : Duration of stop at stations in HHhMM format (e.g., 00h10)\n\n";
+    std::cout << "    <HourOfDeparture> : Departure time in HHhMM format\n";
+    std::cout << "    <StopDuration>    : Duration of stop at stations in HHhMM format\n\n";
 
     std::cout << "Usage:\n";
-    std::cout << "  ./train_simulator input_file.txt\n";
-    std::cout << "  ./train_simulator -help   : Show this help message\n";
+    std::cout << "  ./network <rails_file.txt> <trains_file.txt>\n";
+    std::cout << "  ./network -help   : Show this help message\n";
     std::cout << "============================\n";
 }

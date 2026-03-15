@@ -13,6 +13,7 @@ private:
             const std::string& departureName, const std::string& arrivalName, double departureHour, double stopDuration);
 
 public:
-    void loadFile(const std::string& filename);
+    void loadRails(const std::string& filename);
+    void loadTrains(const std::string& filename);
 };
 

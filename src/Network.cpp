@@ -171,7 +171,7 @@ void Network::closeRandomStation()
     if (ENABLE_PRINT)
         std::cout << "Event: Bomb Alert - Closing a random station\n";
     auto& stations = Registry<Station>::getInstance().getList();
-    if (stations.empty()) return;
+    if (stations.size() < 5) return;
 
     int i = rand() % stations.size();
     Station* s = stations[i].get();
@@ -183,7 +183,7 @@ void Network::stopRandomSegment() {
     if (ENABLE_PRINT)
         std::cout << "Event: Power Outage - Stopping a random segment\n";
     auto& segments = Registry<Segment>::getInstance().getList();
-    if (segments.empty()) return;
+    if (segments.size() < 5) return;
     Segment* seg = segments[rand() % segments.size()].get();
     for (Train* t : trainsPassingThrough(seg->getStationA())) {
         if (t->getBoard().getCurrentSegment() == seg) {
@@ -201,7 +201,7 @@ void Network::reduceRandomSegmentSpeed() {
     if (ENABLE_PRINT)
         std::cout << "Event: Track Maintenance - Reducing speed on a random segment\n";
     auto& segments = Registry<Segment>::getInstance().getList();
-        if (segments.empty()) return;
+    if (segments.size() < 5) return;
     segments[rand() % segments.size()]->setMaxAllowedSpeed(segments[rand() % segments.size()]->getMaxAllowedSpeed() * 0.5);
 }
 
@@ -209,7 +209,7 @@ void Network::delayRandomTrains() {
     if (ENABLE_PRINT)
         std::cout << "Event: Signal Failure - Delaying random trains\n";
     auto& segments = Registry<Train>::getInstance().getList();
-        if (segments.empty()) return;
+    if (segments.size() < 5) return;
     Train* t = segments[rand() % segments.size()].get();
     t->getBoard().setStopTimeRemaining(t->getBoard().getStopTimeRemaining() + 0.5);
 }
