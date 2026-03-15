@@ -1,0 +1,126 @@
+#include "Loader.hpp"
+#include "Station.hpp"
+#include "Segment.hpp"
+#include "Registry.hpp"
+#include "Train.hpp"
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <cstdlib>
+
+double Loader::parseTime(const std::string& timeStr) {
+    size_t hPos = timeStr.find('h');
+    if (hPos == std::string::npos) {
+        std::cerr << "Invalid time format: " << timeStr << "\n";
+        std::exit(1);
+    }
+    int hours = std::stoi(timeStr.substr(0, hPos));
+    int minutes = std::stoi(timeStr.substr(hPos + 1));
+    return hours + minutes / 60.0;
+}
+
+void Loader::loadFile(const std::string& filename)
+{
+    std::ifstream file(filename);
+    if (!file) {
+        std::cerr << "Cannot open file: " << filename << "\n";
+        std::exit(1);
+    }
+
+    std::string line;
+    int lineNumber = 0;
+    while (std::getline(file, line))
+    {
+        lineNumber++;
+        if (line.empty() || line[0] == '#') continue;
+
+        std::istringstream iss(line);
+        std::string type;
+        if (!(iss >> type)) {
+            std::cerr << "Parsing error at line " << lineNumber << ": empty or invalid line\n";
+            std::exit(1);
+        }
+
+        if (type == "Segment")
+        {
+            std::string nameA, nameB;
+            double length, maxSpeed;
+            if (!(iss >> nameA >> nameB >> length >> maxSpeed)) {
+                std::cerr << "Parsing error at line " << lineNumber 
+                          << ": Segment requires 4 fields (nameA, nameB, length, maxSpeed)\n";
+                std::exit(1);
+            }
+
+            loadSegment(nameA, nameB, length, maxSpeed);
+        }
+        else if (type == "Train") {
+            std::string name, depName, arrName, depHourStr, stopDurStr;
+            double weight, friction, maxAcceleration, maxBrakeForce;
+
+            if (!(iss >> name >> weight >> friction >> maxAcceleration >> maxBrakeForce
+                  >> depName >> arrName >> depHourStr >> stopDurStr)) {
+                std::cerr << "Parsing error at line " << lineNumber << "\n";
+                std::exit(1);
+            }
+
+            double depHour = parseTime(depHourStr);
+            double stopDur = parseTime(stopDurStr);
+
+            loadTrain(name, weight, friction, maxAcceleration, maxBrakeForce, depName, arrName, depHour, stopDur);
+        }
+        else
+        {
+            std::cerr << "Parsing error at line " << lineNumber 
+                      << ": unknown type \"" << type << "\"\n";
+            std::exit(1);
+        }
+    }
+}
+
+void Loader::loadSegment(const std::string& nameA, const std::string& nameB, double length, double maxSpeed)
+{
+    Station* a = Registry<Station>::getInstance().findByName(nameA);
+    if (!a) {
+        auto s = std::make_unique<Station>(nameA);
+        a = s.get();
+        Registry<Station>::getInstance().add(std::move(s));
+    }
+
+    Station* b = Registry<Station>::getInstance().findByName(nameB);
+    if (!b) {
+        auto s = std::make_unique<Station>(nameB);
+        b = s.get();
+        Registry<Station>::getInstance().add(std::move(s));
+    }
+
+    auto segment = std::make_unique<Segment>(a, b, length, maxSpeed);
+    Registry<Segment>::getInstance().add(std::move(segment));
+}
+
+void Loader::loadTrain(const std::string& name, double weight, double frictionCoef, double maxAcceleration, double maxBrakeForce,
+            const std::string& departureName, const std::string& arrivalName, double departureHour, double stopDuration)
+{
+    Station* departure = Registry<Station>::getInstance().findByName(departureName);
+    Station* arrival = Registry<Station>::getInstance().findByName(arrivalName);
+
+    if (!departure || !arrival) {
+        std::cerr << "Error: train refers to unknown station(s) "
+                  << departureName << " or " << arrivalName << "\n";
+        std::exit(1);
+    }
+
+    auto train = std::make_unique<Train>(
+        nextTrainId++,
+        name,
+        weight,
+        frictionCoef,
+        maxAcceleration,
+        maxBrakeForce,
+        departure,
+        arrival,
+        departureHour,
+        stopDuration
+    );
+
+    Registry<Train>::getInstance().add(std::move(train));
+}

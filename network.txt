@@ -1,0 +1,48 @@
+#Segments
+Segment Paris Lyon 465.0 332.0
+Segment Lyon Marseille 315.0 258.0
+Segment Paris Bruxelles 320.0 260.0
+Segment Bruxelles Amsterdam 210.0 205.0
+Segment Amsterdam Berlin 650.0 425.0
+Segment Berlin Munich 585.0 392.0
+Segment Munich Zurich 315.0 258.0
+Segment Zurich Milan 280.0 240.0
+Segment Milan Rome 600.0 400.0
+Segment Vienna Budapest 243.0 221.0
+Segment Berlin Prague 350.0 275.0
+Segment Prague Vienna 330.0 265.0
+Segment Budapest Rome 1200.0 700.0
+Segment Copenhagen Berlin 610.0 405.0
+Segment Copenhagen Amsterdam 800.0 500.0
+Segment Vienna Milan 800.0 500.0
+Segment Lyon Zurich 410.0 305.0
+Segment Brussels Munich 740.0 470.0
+Segment Marseille Milan 570.0 385.0
+
+#Trains
+Train TGVParis-Lyon 400 0.002 100.0 80.0 Paris Lyon 08h00 00h10
+Train TGVBerlin-Prague 360 0.002 95.0 75.0 Berlin Prague 07h30 00h12
+Train TGVCopenhagen-Berlin 620 0.0025 100.0 80.0 Copenhagen Berlin 08h00 00h15
+Train TGVBruxelles-Amsterdam 200 0.002 90.0 70.0 Bruxelles Amsterdam 08h45 00h10
+Train TGVMarseille-Milan 580 0.0023 105.0 85.0 Marseille Milan 09h00 00h15
+
+Train TGVParis-Rome 420 0.002 100.0 80.0 Paris Rome 06h30 00h10
+Train TGVParis-Berlin 400 0.002 95.0 75.0 Paris Berlin 07h10 00h12
+Train TGVParis-Milan 410 0.0025 98.0 80.0 Paris Milan 08h00 00h10
+Train TGVAmsterdam-Rome 450 0.002 105.0 85.0 Amsterdam Rome 07h45 00h12
+Train TGVBruxelles-Zurich 390 0.002 95.0 75.0 Bruxelles Zurich 08h20 00h10
+Train TGVBerlin-Rome 470 0.0025 110.0 90.0 Berlin Rome 06h50 00h12
+Train TGVBerlin-Milan 430 0.002 100.0 80.0 Berlin Milan 07h30 00h10
+Train TGVCopenhagen-Rome 520 0.0025 105.0 85.0 Copenhagen Rome 06h10 00h15
+Train TGVCopenhagen-Munich 460 0.002 100.0 80.0 Copenhagen Munich 08h40 00h12
+Train TGVVienna-Paris 440 0.002 95.0 75.0 Vienna Paris 09h00 00h10
+Train TGVVienna-Amsterdam 430 0.0025 98.0 80.0 Vienna Amsterdam 10h20 00h12
+Train TGVVienna-Berlin 410 0.002 95.0 75.0 Vienna Berlin 11h00 00h10
+Train TGVZurich-Amsterdam 400 0.002 90.0 70.0 Zurich Amsterdam 12h30 00h12
+Train TGVZurich-Berlin 420 0.002 95.0 75.0 Zurich Berlin 13h10 00h10
+Train TGVMilan-Amsterdam 470 0.0025 105.0 85.0 Milan Amsterdam 14h20 00h12
+Train TGVMilan-Copenhagen 480 0.0025 108.0 88.0 Milan Copenhagen 10h00 00h15
+Train TGVRome-Amsterdam 500 0.003 110.0 90.0 Rome Amsterdam 13h00 00h15
+Train TGVRome-Paris 480 0.003 105.0 85.0 Rome Paris 15h00 00h15
+Train TGVBudapest-Paris 460 0.0025 100.0 80.0 Budapest Paris 18h30 00h12
+Train TGVBudapest-Amsterdam 470 0.0025 105.0 85.0 Budapest Amsterdam 16h20 00h12

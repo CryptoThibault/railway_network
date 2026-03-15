@@ -1,0 +1,4 @@
+network
+*.o
+log
+plantuml.jar
