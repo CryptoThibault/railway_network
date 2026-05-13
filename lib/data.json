@@ -1,0 +1,22 @@
+{
+  "People": [
+    {
+      "name": "Alice",
+      "age": 30,
+      "active": true,
+      "hobbies": ["reading", "cycling"]
+    },
+    {
+      "name": "Bob",
+      "age": 25,
+      "active": false,
+      "hobbies": ["gaming", "cooking"]
+    },
+    {
+      "name": "Charlie",
+      "age": 40,
+      "active": true,
+      "hobbies": []
+    }
+  ]
+}
