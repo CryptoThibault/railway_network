@@ -36,10 +36,10 @@ The umbrella header `include/libftpp.hpp` brings together the main categories of
 
 ### Design Patterns
 - `Singleton<T>`: thread-safe base class for creating a single shared instance of a type.
-- `Factory`: register creation callbacks and instantiate objects from `FieldMap` data.
 - `Observer<TEvent>`: publish/subscribe pattern for event handling.
 - `Memento`: save and restore object state through serialized snapshots.
 - `StateMachine<TState>`: add states, transitions and actions, then drive state changes.
+- `Factory`: register creation callbacks and instantiate objects from `FieldMap` data.
 
 ### IO and Logging
 - `ThreadSafeIOStream`: synchronized console I/O with optional prefixes and prompt support across multiple threads.

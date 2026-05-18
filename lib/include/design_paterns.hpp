@@ -3,3 +3,4 @@
 #include "observer.hpp"
 #include "singleton.hpp"
 #include "state_machine.hpp"
+#include "factory.hpp"
