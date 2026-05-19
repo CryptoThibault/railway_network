@@ -1,6 +1,9 @@
 #pragma once
+#include "network.hpp"
 #include <string>
 #include <vector>
+
+using Vec2 = IVector2<double>;
 
 class Segment;
 
@@ -10,15 +13,13 @@ public:
     Station(std::string name, double x, double y);
 
     const std::string& getName() const;
-    double getX() const;
-    double getY() const;
+    const Vec2& getPosition() const;
     const std::vector<Segment*>& getSegments() const;
 
     void addSegment(Segment* segment);
 
 private:
     std::string _name;
-    double _x;
-    double _y;
+    Vec2 _position;
     std::vector<Segment*> _segments;
 };

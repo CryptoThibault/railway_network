@@ -1,11 +1,9 @@
 #include "station.hpp"
 
-Station::Station(std::string name, double x, double y)
-    : _name(name), _x(x), _y(y) {}
+Station::Station(std::string name, double x, double y) : _name(name), _position{x, y} {}
 
 const std::string& Station::getName() const { return _name; }
-double Station::getX() const { return _x; }
-double Station::getY() const { return _y; }
+const Vec2& Station::getPosition() const { return _position; }
 const std::vector<Segment*>& Station::getSegments() const { return _segments; }
 
 void Station::addSegment(Segment* segment)

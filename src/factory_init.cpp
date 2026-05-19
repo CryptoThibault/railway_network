@@ -39,6 +39,7 @@ void factory_init()
             return Segment(
                 stationA,
                 stationB,
+                m.at("length"),
                 m.at("maxSpeed")
             );
         })

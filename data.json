@@ -1,11 +1,11 @@
 {
     "stations": [
-        { "name": "Paris", "x": 0.0, "y": 0.0 },
-        { "name": "Lyon", "x": 100.0, "y": 200.0 },
-        { "name": "Marseille", "x": 200.0, "y": 400.0 }
+        { "name": "Paris", "x": 261260, "y": 6250951 },
+        { "name": "Lyon", "x": 538243, "y": 5741627 },
+        { "name": "Marseille", "x": 598969, "y": 5354756 }
     ],
     "segments": [
-        { "a": "Paris", "b": "Lyon", "maxSpeed": 120.0 },
-        { "a": "Lyon", "b": "Marseille", "maxSpeed": 160.0 }
-    ]
+        { "a": "Paris", "b": "Lyon", "length": 427, "maxSpeed": 320 },
+        { "a": "Lyon", "b": "Marseille", "length": 309, "maxSpeed": 320 }
+      ]
 }

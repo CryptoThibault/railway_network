@@ -9,8 +9,21 @@ void printStations()
         Logger::instance()->debug()
             << "[Station] "
             << s->getName()
-            << " (" << s->getX()
-            << ", " << s->getY() << ")";
+            << " (" << s->getPosition().x
+            << ", " << s->getPosition().y << ")";
+
+        const auto& segments = s->getSegments();
+
+        for (auto* seg : segments)
+        {
+            Logger::instance()->trace()
+                << "   -> Segment to "
+                << (seg->getStationA() == s
+                        ? seg->getStationB()->getName()
+                        : seg->getStationA()->getName())
+                << " | maxSpeed: " << seg->getMaxSpeed()
+                << " | length: " << seg->getLength();
+        }
     }
 }
 
@@ -25,7 +38,7 @@ void printSegments()
             << s->getStationA()->getName()
             << " - "
             << s->getStationB()->getName()
-            << " | speed: " << s->getMaxSpeed()
-            << " | length: " << s->getLength();
+            << " | length: " << s->getLength()
+            << " | speed: " << s->getMaxSpeed();
     }
 }
