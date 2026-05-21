@@ -42,3 +42,35 @@ void printSegments()
             << " | speed: " << s->getMaxSpeed();
     }
 }
+
+void printTrains()
+{
+    // for (size_t i = 0; i < Registry<Train>::instance()->size(); ++i)
+    // {
+    //     auto* t = Registry<Train>::instance()->get(i);
+
+    //     Logger::instance()->debug()
+    //         << "[Train] "
+    //         << t->getId()
+    //         << " | type: "
+    //         << t->getType()->name
+    //         << " | station: "
+    //         << (t->getCurrentStation()
+    //                 ? t->getCurrentStation()->getName()
+    //                 : "NONE");
+
+    //     Logger::instance()->trace()
+    //         << "   -> maxSpeed: "
+    //         << t->getType()->maxSpeed
+    //         << " | acceleration: "
+    //         << t->getType()->acceleration
+    //         << " | braking: "
+    //         << t->getType()->braking
+    //         << " | friction: "
+    //         << t->getType()->friction
+    //         << " | length: "
+    //         << t->getType()->length
+    //         << " | weight: "
+    //         << t->getType()->weight;
+    // }
+}

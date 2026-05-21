@@ -19,7 +19,7 @@ private:
     TState _currentState{};
 
     std::unordered_set<TState> _states;
-    std::unordered_map<TState, std::pair<TState, std::function<void()>>> _transitions;
+    std::unordered_map<TState, std::vector<std::pair<TState, std::function<void()>>>> _transitions;
     std::unordered_map<TState, std::function<void()>> _actions;
 };
 

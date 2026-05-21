@@ -4,13 +4,17 @@ void registry_init()
 {
     Registry<Station>::instantiate();
     Registry<Segment>::instantiate();
+    Registry<TrainType>::instantiate();
+    Registry<Train>::instantiate();
+    Registry<Journey>::instantiate();
 
     FieldMap data = Loader::loadJSON("data.json");
+    auto factory = Factory::instance();
 
-    auto stations = Factory::instance()->createAll<Station>("Station", data.at("stations"));
+    auto stations = factory->createAll<Station>("Station", data.at("stations"));
     Registry<Station>::instance()->add(stations);
 
-    auto segments = Factory::instance()->createAll<Segment>("Segment", data.at("segments"));
+    auto segments = factory->createAll<Segment>("Segment", data.at("segments"));
     Registry<Segment>::instance()->add(segments);
 
     for (size_t i = 0; i < Registry<Segment>::instance()->size(); ++i)
@@ -20,5 +24,27 @@ void registry_init()
         seg->getStationA()->addSegment(seg);
         seg->getStationB()->addSegment(seg);
     }
+    FieldVector trainTypes = data.at("trainTypes");
+    for (const auto& field : trainTypes)
+    {
+        FieldMap m = field;
 
+        Registry<TrainType>::instance()->add(
+            TrainType{
+                m.at("name"),
+                m.at("maxSpeed"),
+                m.at("acceleration"),
+                m.at("braking"),
+                m.at("friction"),
+                m.at("length"),
+                m.at("weight")
+            }
+        );
+    }
+
+    auto trains = factory->createAll<Train>("Train", data.at("trains"));
+    Registry<Train>::instance()->add(trains);
+    
+    auto journeys = factory->createAll<Journey>("Journey", data.at("journey"));
+    Registry<Journey>::instance()->add(journeys);
 }

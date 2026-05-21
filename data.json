@@ -7,5 +7,74 @@
     "segments": [
         { "a": "Paris", "b": "Lyon", "length": 427, "maxSpeed": 320 },
         { "a": "Lyon", "b": "Marseille", "length": 309, "maxSpeed": 320 }
-      ]
+    ],
+    "trainTypes": [
+        {
+            "name": "TGV",
+            "maxSpeed": 320,
+            "acceleration": 0.6,
+            "braking": 0.8,
+            "friction": 0.02,
+            "length": 200,
+            "weight": 400000
+        },
+        {
+            "name": "ICE",
+            "maxSpeed": 300,
+            "acceleration": 0.55,
+            "braking": 0.75,
+            "friction": 0.025,
+            "length": 205,
+            "weight": 410000
+        },
+        {
+            "name": "AVE",
+            "maxSpeed": 310,
+            "acceleration": 0.5,
+            "braking": 0.7,
+            "friction": 0.03,
+            "length": 200,
+            "weight": 420000
+        },
+        {
+            "name": "FRECCIAROSSA",
+            "maxSpeed": 300,
+            "acceleration": 0.65,
+            "braking": 0.85,
+            "friction": 0.02,
+            "length": 202,
+            "weight": 455000
+        },
+        {
+            "name": "EUROSTAR",
+            "maxSpeed": 300,
+            "acceleration": 0.6,
+            "braking": 0.8,
+            "friction": 0.02,
+            "length": 394,
+            "weight": 752000
+        }
+    ],
+    "trains": [
+        {
+            "type": "TGV",
+            "station": "Paris"
+        },
+        {
+            "type": "TGV",
+            "station": "Lyon"
+        },
+        {
+            "type": "ICE",
+            "station": "Marseille"
+        }
+    ],
+    "journey": [
+        {
+            "start": "Paris",
+            "end": "Marseille",
+            "departure": 28800,
+            "dwell": 300
+        }
+    ]
 }

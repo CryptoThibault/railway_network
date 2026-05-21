@@ -9,19 +9,19 @@ void factory_init()
 
     factory->registerCreator<Station>(
         "Station",
-        std::function<Station(const FieldMap&)>([](const FieldMap& m)
+        [](const FieldMap& m)
         {
             return Station(
                 m.at("name"),
                 m.at("x"),
                 m.at("y")
             );
-        })
+        }
     );
 
     factory->registerCreator<Segment>(
         "Segment",
-        std::function<Segment(const FieldMap&)>([](const FieldMap& m)
+        [](const FieldMap& m)
         {
             const std::string nameA = m.at("a");
             const std::string nameB = m.at("b");
@@ -42,6 +42,67 @@ void factory_init()
                 m.at("length"),
                 m.at("maxSpeed")
             );
-        })
+        }
+    );
+
+    factory->registerCreator<Train>(
+        "Train",
+        [](const FieldMap& m)
+        {
+            static long id = 0;
+
+            TrainType* type = Registry<TrainType>::instance()->find(
+                [&](const TrainType& type)
+                {
+                    return type.name == static_cast<std::string>(m.at("type"));
+                }
+            );
+
+
+            Station* station = Registry<Station>::instance()->find(
+                [&](const Station& s)
+                {
+                    return s.getName() ==
+                        static_cast<std::string>(m.at("station"));
+                }
+            );
+
+            if (!station)
+                throw std::runtime_error("Train references unknown station");
+
+            return Train(
+                id++,
+                type,
+                station
+            );
+        }
+    );
+
+    factory->registerCreator<Journey>(
+        "Journey",
+        [](const FieldMap& m)
+        {
+            const std::string nameStart = m.at("start");
+            const std::string nameEnd = m.at("end");
+
+            Station* start = Registry<Station>::instance()->find(
+                [&](const Station& station) { return station.getName() == nameStart; }
+            );
+            Station* end = Registry<Station>::instance()->find(
+                [&](const Station& station) { return station.getName() == nameEnd; }
+            );
+
+            if (!start || !end)
+                throw std::runtime_error("Journey references unknown station");
+
+            long departure = m.at("departure");
+            long dwell = m.at("dwell");
+            return Journey(
+                start,
+                end,
+                static_cast<uint32_t>(departure),
+                static_cast<uint32_t>(dwell)
+            );
+        }
     );
 }

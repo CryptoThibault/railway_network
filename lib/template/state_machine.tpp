@@ -10,7 +10,7 @@ void StateMachine<TState>::addTransition(const TState& startState, const TState&
     if (_states.find(startState) == _states.end() || _states.find(finalState) == _states.end())
         throw std::invalid_argument("State not registered");
 
-    _transitions[startState] = {finalState, lambda};
+    _transitions[startState].push_back({finalState, lambda});
 }
 
 template <typename TState>
@@ -26,13 +26,23 @@ template <typename TState>
 void StateMachine<TState>::transitionTo(const TState& state)
 {
     auto it = _transitions.find(_currentState);
-    if (it == _transitions.end() || it->second.first != state)
+    if (it == _transitions.end())
         throw std::invalid_argument("Transition not allowed");
 
-    if (it->second.second)
-        it->second.second();
+    for (const auto& transition : it->second)
+    {
+        if (transition.first == state)
+        {
+            if (transition.second)
+                transition.second();
 
-    _currentState = state;
+            _currentState = state;
+
+            return;
+        }
+    }
+
+    throw std::invalid_argument("Transition not allowed");
 }
 
 template <typename TState>
