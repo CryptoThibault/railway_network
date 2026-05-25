@@ -55,3 +55,12 @@ size_t Registry<T>::size() const
     std::lock_guard<std::mutex> lock(_mutex);
     return _objects.size();
 }
+
+template <typename T>
+auto Registry<T>::begin() { return _objects.begin(); }
+template <typename T>
+auto Registry<T>::end() { return _objects.end(); }
+template <typename T>
+auto Registry<T>::begin() const { return _objects.cbegin(); }
+template <typename T>
+auto Registry<T>::end() const { return _objects.cend(); }

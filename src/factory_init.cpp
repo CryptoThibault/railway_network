@@ -49,7 +49,7 @@ void factory_init()
         "Train",
         [](const FieldMap& m)
         {
-            static long id = 0;
+            static long id = 1000;
 
             TrainType* type = Registry<TrainType>::instance()->find(
                 [&](const TrainType& type)
@@ -62,8 +62,7 @@ void factory_init()
             Station* station = Registry<Station>::instance()->find(
                 [&](const Station& s)
                 {
-                    return s.getName() ==
-                        static_cast<std::string>(m.at("station"));
+                    return s.getName() == static_cast<std::string>(m.at("station"));
                 }
             );
 
@@ -97,6 +96,7 @@ void factory_init()
 
             long departure = m.at("departure");
             long dwell = m.at("dwell");
+
             return Journey(
                 start,
                 end,

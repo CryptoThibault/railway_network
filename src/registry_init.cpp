@@ -16,28 +16,26 @@ void registry_init()
 
     auto segments = factory->createAll<Segment>("Segment", data.at("segments"));
     Registry<Segment>::instance()->add(segments);
-
-    for (size_t i = 0; i < Registry<Segment>::instance()->size(); ++i)
+    for (auto& seg : *Registry<Segment>::instance())
     {
-        auto* seg = Registry<Segment>::instance()->get(i);
-
-        seg->getStationA()->addSegment(seg);
-        seg->getStationB()->addSegment(seg);
+        seg.getStationA()->addSegment(&seg);
+        seg.getStationB()->addSegment(&seg);
     }
+
     FieldVector trainTypes = data.at("trainTypes");
-    for (const auto& field : trainTypes)
+    for (auto& field : trainTypes)
     {
         FieldMap m = field;
 
         Registry<TrainType>::instance()->add(
             TrainType{
                 m.at("name"),
+                m.at("mass"),
                 m.at("maxSpeed"),
-                m.at("acceleration"),
-                m.at("braking"),
+                m.at("engineForce"),
+                m.at("brakeForce"),
                 m.at("friction"),
-                m.at("length"),
-                m.at("weight")
+                m.at("length")
             }
         );
     }

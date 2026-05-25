@@ -11,48 +11,48 @@
     "trainTypes": [
         {
             "name": "TGV",
-            "maxSpeed": 320,
-            "acceleration": 0.6,
-            "braking": 0.8,
-            "friction": 0.02,
-            "length": 200,
-            "weight": 400000
+            "mass": 400000,
+            "maxSpeed": 88.9,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200
         },
         {
             "name": "ICE",
-            "maxSpeed": 300,
-            "acceleration": 0.55,
-            "braking": 0.75,
-            "friction": 0.025,
-            "length": 205,
-            "weight": 410000
+            "mass": 410000,
+            "maxSpeed": 83.3,
+            "engineForce": 210000,
+            "brakeForce": 300000,
+            "friction": 0.018,
+            "length": 205
         },
         {
             "name": "AVE",
-            "maxSpeed": 310,
-            "acceleration": 0.5,
-            "braking": 0.7,
-            "friction": 0.03,
-            "length": 200,
-            "weight": 420000
+            "mass": 420000,
+            "maxSpeed": 86.1,
+            "engineForce": 200000,
+            "brakeForce": 280000,
+            "friction": 0.02,
+            "length": 200
         },
         {
             "name": "FRECCIAROSSA",
-            "maxSpeed": 300,
-            "acceleration": 0.65,
-            "braking": 0.85,
-            "friction": 0.02,
-            "length": 202,
-            "weight": 455000
+            "mass": 455000,
+            "maxSpeed": 83.3,
+            "engineForce": 240000,
+            "brakeForce": 340000,
+            "friction": 0.015,
+            "length": 202
         },
         {
             "name": "EUROSTAR",
-            "maxSpeed": 300,
-            "acceleration": 0.6,
-            "braking": 0.8,
-            "friction": 0.02,
-            "length": 394,
-            "weight": 752000
+            "mass": 752000,
+            "maxSpeed": 83.3,
+            "engineForce": 260000,
+            "brakeForce": 380000,
+            "friction": 0.015,
+            "length": 394
         }
     ],
     "trains": [

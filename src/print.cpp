@@ -2,25 +2,23 @@
 
 void printStations()
 {
-    for (size_t i = 0; i < Registry<Station>::instance()->size(); ++i)
+    for (auto& s : *Registry<Station>::instance())
     {
-        auto* s = Registry<Station>::instance()->get(i);
-
         Logger::instance()->debug()
             << "[Station] "
-            << s->getName()
-            << " (" << s->getPosition().x
-            << ", " << s->getPosition().y << ")";
+            << s.getName()
+            << " (" << s.getPosition().x
+            << ", " << s.getPosition().y << ")";
 
-        const auto& segments = s->getSegments();
-
-        for (auto* seg : segments)
+        for (auto* seg : s.getSegments())
         {
+            Station* next =
+                (seg->getStationA() == &s)
+                ? seg->getStationB()
+                : seg->getStationA();
+
             Logger::instance()->trace()
-                << "   -> Segment to "
-                << (seg->getStationA() == s
-                        ? seg->getStationB()->getName()
-                        : seg->getStationA()->getName())
+                << "   . Segment to " << next->getName()
                 << " | maxSpeed: " << seg->getMaxSpeed()
                 << " | length: " << seg->getLength();
         }
@@ -29,48 +27,47 @@ void printStations()
 
 void printSegments()
 {
-    for (size_t i = 0; i < Registry<Segment>::instance()->size(); ++i)
+    for (auto& s : *Registry<Segment>::instance())
     {
-        auto* s = Registry<Segment>::instance()->get(i);
 
         Logger::instance()->debug()
             << "[Segment] "
-            << s->getStationA()->getName()
+            << s.getStationA()->getName()
             << " - "
-            << s->getStationB()->getName()
-            << " | length: " << s->getLength()
-            << " | speed: " << s->getMaxSpeed();
+            << s.getStationB()->getName()
+            << " | length: " << s.getLength()
+            << " | speed: " << s.getMaxSpeed();
     }
 }
 
 void printTrains()
 {
-    // for (size_t i = 0; i < Registry<Train>::instance()->size(); ++i)
-    // {
-    //     auto* t = Registry<Train>::instance()->get(i);
+    for (auto& t : *Registry<Train>::instance())
+    {
+        Logger::instance()->debug()
+            << "[Train] "
+            << t.getId()
+            << " | type: "
+            << t.getType()->name
+            << " | speed: "
+            << t.getMotion().getSpeed()
+            << " | distance: "
+            << t.getMotion().getDistance()
+            << " | station: "
+            << t.getBoard().currentStation->getName();
 
-    //     Logger::instance()->debug()
-    //         << "[Train] "
-    //         << t->getId()
-    //         << " | type: "
-    //         << t->getType()->name
-    //         << " | station: "
-    //         << (t->getCurrentStation()
-    //                 ? t->getCurrentStation()->getName()
-    //                 : "NONE");
-
-    //     Logger::instance()->trace()
-    //         << "   -> maxSpeed: "
-    //         << t->getType()->maxSpeed
-    //         << " | acceleration: "
-    //         << t->getType()->acceleration
-    //         << " | braking: "
-    //         << t->getType()->braking
-    //         << " | friction: "
-    //         << t->getType()->friction
-    //         << " | length: "
-    //         << t->getType()->length
-    //         << " | weight: "
-    //         << t->getType()->weight;
-    // }
+        Logger::instance()->trace()
+            << "   . mass: "
+            << t.getType()->mass
+            << " | maxSpeed: "
+            << t.getType()->maxSpeed
+            << " | engineForce: "
+            << t.getType()->engineForce
+            << " | brakeForce: "
+            << t.getType()->brakeForce
+            << " | friction: "
+            << t.getType()->friction
+            << " | length: "
+            << t.getType()->length;
+    }
 }

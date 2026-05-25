@@ -1,12 +1,13 @@
 #pragma once
+#include <string>
 
 struct TrainType
 {
     std::string name;
+    double mass;
     double maxSpeed;
-    double acceleration;
-    double braking;
+    double engineForce;
+    double brakeForce;
     double friction;
     double length;
-    double weight;
 };
