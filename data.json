@@ -5,8 +5,8 @@
         { "name": "Marseille", "x": 598969, "y": 5354756 }
     ],
     "segments": [
-        { "a": "Paris", "b": "Lyon", "length": 427, "maxSpeed": 320 },
-        { "a": "Lyon", "b": "Marseille", "length": 309, "maxSpeed": 320 }
+        { "a": "Paris", "b": "Lyon", "length": 427, "maxSpeed": 88.9 },
+        { "a": "Lyon", "b": "Marseille", "length": 309, "maxSpeed": 88.9 }
     ],
     "trainTypes": [
         {

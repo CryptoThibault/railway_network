@@ -49,15 +49,14 @@ void factory_init()
         "Train",
         [](const FieldMap& m)
         {
-            static long id = 1000;
+            static long id = 0;
 
-            TrainType* type = Registry<TrainType>::instance()->find(
+            TrainType type = *Registry<TrainType>::instance()->find(
                 [&](const TrainType& type)
                 {
                     return type.name == static_cast<std::string>(m.at("type"));
                 }
             );
-
 
             Station* station = Registry<Station>::instance()->find(
                 [&](const Station& s)
@@ -70,7 +69,7 @@ void factory_init()
                 throw std::runtime_error("Train references unknown station");
 
             return Train(
-                id++,
+                ++id,
                 type,
                 station
             );

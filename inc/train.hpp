@@ -1,8 +1,9 @@
 #pragma once
 #include "network.hpp"
-#include "train_type.hpp"
 #include "board.hpp"
 #include "motion.hpp"
+
+struct TrainType;
 
 enum class TrainState
 {
@@ -16,17 +17,18 @@ enum class TrainState
 class Train
 {
 public:
-    Train(long id, const TrainType* type, Station* initialStation);
+    Train(long id, TrainType type, Station* initialStation);
+
+    void update();
+    void transitionTo(TrainState state);
 
     long getId() const;
-    const TrainType* getType() const;
-    Board getBoard() const;
-    Motion getMotion() const;
+    Board& getBoard();
+    const Board& getBoard() const;
+    const Motion& getMotion() const;
 
 private:
     long _id;
-    const TrainType* _type;
-
     Board _board;
     Motion _motion;
     StateMachine<TrainState> _stateMachine;

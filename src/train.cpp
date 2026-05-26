@@ -1,30 +1,27 @@
 #include "train.hpp"
 
-Train::Train(long id, const TrainType* type, Station* initialStation)
+Train::Train(long id, TrainType type, Station* initialStation)
     : _id(id),
-      _type(type),
       _board{initialStation},
-      _motion(this)
+      _motion(type)
 {
     state_machine_init();
+}
 
-    auto& sm = _stateMachine;
-    sm.transitionTo(TrainState::Waiting);
-    sm.transitionTo(TrainState::Accelerating);
-    for (int i = 0; i < 60; i++) sm.update();
-    Logger::instance()->info() << "speed= " << _motion.getSpeed() << " distance= " << _motion.getDistance();
-    sm.transitionTo(TrainState::Cruising);
-    for (int i = 0; i < 60; i++) sm.update();
-    Logger::instance()->info() << "speed= " << _motion.getSpeed() << " distance= " << _motion.getDistance();
-    sm.transitionTo(TrainState::Braking);
-    for (int i = 0; i < 60; i++) sm.update();
-    Logger::instance()->info() << "speed= " << _motion.getSpeed() << " distance= " << _motion.getDistance();
+void Train::update()
+{
+    _stateMachine.update();
+}
+
+void Train::transitionTo(TrainState state)
+{
+    return _stateMachine.transitionTo(state);
 }
 
 long Train::getId() const { return _id; }
-const TrainType* Train::getType() const { return _type; }
-Board Train::getBoard() const { return _board; }
-Motion Train::getMotion() const { return _motion; }
+Board& Train::getBoard() { return _board; }
+const Board& Train::getBoard() const { return _board; }
+const Motion& Train::getMotion() const { return _motion; }
 
 void Train::state_machine_init()
 {
@@ -42,7 +39,7 @@ void Train::state_machine_init()
 
     sm.addAction(TrainState::Accelerating, [this]
     {
-        _motion.accelerate();
+        _motion.accelerate(_board);
         _motion.move();
     });
 
@@ -67,7 +64,7 @@ void Train::state_machine_init()
 
     sm.addTransition(TrainState::Cruising, TrainState::Accelerating, []{});
     sm.addTransition(TrainState::Cruising, TrainState::Braking, []{});
-    
+
     sm.addTransition(TrainState::Braking, TrainState::Accelerating, []{});
     sm.addTransition(TrainState::Braking, TrainState::Cruising, []{});
     sm.addTransition(TrainState::Braking, TrainState::Waiting, []{});

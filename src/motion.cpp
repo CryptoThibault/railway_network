@@ -1,31 +1,32 @@
 #include "motion.hpp"
-#include "train.hpp"
+#include "board.hpp"
+#include "segment.hpp"
 
-Motion::Motion(Train* train) : _train(train) {}
+Motion::Motion(TrainType type) : _type(type) {}
 
 void Motion::move()
 {
     _distance += _speed;
 }
 
-void Motion::accelerate()
+void Motion::accelerate(const Board& board)
 {
-    double force = _train->getType()->engineForce - _train->getType()->friction * _speed;
-    _speed += force / _train->getType()->mass;
+    double force = _type.engineForce - _type.friction * _speed;
+    _speed += force / _type.mass;
 
-    if (_speed > _train->getType()->maxSpeed)
-        _speed = _train->getType()->maxSpeed;
+    double maxSpeed = std::min(_type.maxSpeed, board.currentSegment->getMaxSpeed());
+    if (_speed > maxSpeed) _speed = maxSpeed;
 }
 
 void Motion::brake()
 {
-    double force = -_train->getType()->brakeForce - _train->getType()->friction * _speed;
-    _speed += force / _train->getType()->mass;
+    double force = -_type.brakeForce - _type.friction * _speed;
+    _speed += force / _type.mass;
 
-    if (_speed < 0.0)
-        _speed = 0.0;
+    if (_speed < 0.0) _speed = 0.0;
 }
 
-Train* Motion::getTrain() const { return _train; }
+
+const TrainType& Motion::getType() const { return _type; }
 double Motion::getSpeed() const { return _speed; }
 double Motion::getDistance() const { return _distance; }

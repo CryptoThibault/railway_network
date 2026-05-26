@@ -48,7 +48,7 @@ void printTrains()
             << "[Train] "
             << t.getId()
             << " | type: "
-            << t.getType()->name
+            << t.getMotion().getType().name
             << " | speed: "
             << t.getMotion().getSpeed()
             << " | distance: "
@@ -58,16 +58,16 @@ void printTrains()
 
         Logger::instance()->trace()
             << "   . mass: "
-            << t.getType()->mass
+            << t.getMotion().getType().mass
             << " | maxSpeed: "
-            << t.getType()->maxSpeed
+            << t.getMotion().getType().maxSpeed
             << " | engineForce: "
-            << t.getType()->engineForce
+            << t.getMotion().getType().engineForce
             << " | brakeForce: "
-            << t.getType()->brakeForce
+            << t.getMotion().getType().brakeForce
             << " | friction: "
-            << t.getType()->friction
+            << t.getMotion().getType().friction
             << " | length: "
-            << t.getType()->length;
-    }
+            << t.getMotion().getType().length;
+        }
 }

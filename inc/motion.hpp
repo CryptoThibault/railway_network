@@ -1,23 +1,24 @@
 #pragma once
 #include "train_type.hpp"
 
-class Train;
+struct TrainType;
+struct Board;
 
 class Motion
 {
 public:
-    Motion(Train* train);
+    Motion(TrainType type);
 
     void move();
-    void accelerate();
+    void accelerate(const Board& board);
     void brake();
 
-    Train* getTrain() const;
+    const TrainType& getType() const;
     double getSpeed() const;
     double getDistance() const;
 
 private:
-    Train* _train;
+    TrainType _type;
     double _speed{};
     double _distance{};
 };
