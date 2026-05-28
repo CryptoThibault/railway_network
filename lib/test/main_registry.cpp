@@ -28,7 +28,7 @@ int main()
 
     // Display all stored objects
     std::cout << "All objects:\n";
-    for (auto& obj : reg->getAll()) {
+    for (auto& obj : *reg) {
         obj.print();
     }
 
@@ -49,7 +49,7 @@ int main()
     });
 
     // Display remaining objects
-    for (auto& obj : reg->getAll()) {
+    for (auto& obj : *reg) {
         obj.print();
     }
 

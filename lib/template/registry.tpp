@@ -1,5 +1,5 @@
 template <typename T>
-void Registry<T>::add(T obj)
+void Registry<T>::add(const T& obj)
 {
     std::lock_guard<std::mutex> lock(_mutex);
     _objects.push_back(std::move(obj));
@@ -10,6 +10,15 @@ void Registry<T>::add(const std::vector<T>& vec)
 {
     std::lock_guard<std::mutex> lock(_mutex);
     _objects.insert(_objects.end(), vec.begin(), vec.end());
+}
+
+template <typename T>
+template <typename... Args>
+T* Registry<T>::emplace(Args&&... args)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+    _objects.emplace_back(std::forward<Args>(args)...);
+    return &_objects.back();
 }
 
 template <typename T>
@@ -32,13 +41,6 @@ T* Registry<T>::get(size_t index)
     std::lock_guard<std::mutex> lock(_mutex);
     if (index >= _objects.size()) return nullptr;
     return &_objects[index];
-}
-
-template <typename T>
-std::vector<T> Registry<T>::getAll() const
-{
-    std::lock_guard<std::mutex> lock(_mutex);
-    return _objects;
 }
 
 template <typename T>

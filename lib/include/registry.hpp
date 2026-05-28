@@ -1,10 +1,10 @@
 #pragma once
 #include "singleton.hpp"
+#include <deque>
 #include <vector>
-#include <mutex>
-#include <stdexcept>
 #include <functional>
-#include <algorithm>
+#include <mutex>
+#include <optional>
 
 template <typename T>
 class Registry : public Singleton<Registry<T>>
@@ -12,13 +12,16 @@ class Registry : public Singleton<Registry<T>>
     friend class Singleton<Registry<T>>;
 
 public:
-    void add(T obj);
+    void add(const T& obj);
     void add(const std::vector<T>& vec);
+    
+    template <typename... Args>
+    T* emplace(Args&&... args);
+    
     void remove(const std::function<bool(const T&)>& predicate);
     void clear();
 
     T* get(size_t index);
-    std::vector<T> getAll() const;
     T* find(const std::function<bool(const T&)>& predicate);
     size_t size() const;
 
@@ -29,7 +32,7 @@ public:
 
 private:
     mutable std::mutex _mutex;
-    std::vector<T> _objects;
+    std::deque<T> _objects;
 };
 
 #include "registry.tpp"

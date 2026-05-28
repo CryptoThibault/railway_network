@@ -40,8 +40,32 @@ void registry_init()
         );
     }
 
-    auto trains = factory->createAll<Train>("Train", data.at("trains"));
-    Registry<Train>::instance()->add(trains);
+    FieldVector trainData = data.at("trains");
+    for (const auto& trainField : trainData)
+    {
+        const FieldMap& m = trainField;
+        
+        static long trainId = 0;
+        
+        TrainType trainType = *Registry<TrainType>::instance()->find(
+            [&](const TrainType& type)
+            {
+                return type.name == static_cast<std::string>(m.at("type"));
+            }
+        );
+        
+        Station* station = Registry<Station>::instance()->find(
+            [&](const Station& s)
+            {
+                return s.getName() == static_cast<std::string>(m.at("station"));
+            }
+        );
+        
+        if (!station)
+            throw std::runtime_error("Train references unknown station");
+        
+        Registry<Train>::instance()->emplace(++trainId, trainType, station);
+    }
     
     auto journeys = factory->createAll<Journey>("Journey", data.at("journey"));
     Registry<Journey>::instance()->add(journeys);

@@ -19,14 +19,15 @@ int main() {
     Factory::instantiate();
     Factory::instance()->registerCreator<Person>(
         "Person",
-        std::function<Person(const FieldMap&)>([](const FieldMap& m) {
+        [](const FieldMap& m)
+        {
             return Person(
                 m.at("name"),
                 m.at("age"),
                 m.at("active"),
                 m.at("hobbies").asVectorOf<std::string>()
             );
-        })
+        }
     );
 
     // Load JSON file

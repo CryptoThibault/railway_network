@@ -6,7 +6,7 @@
 #include "train_type.hpp"
 #include "journey.hpp"
 
-#define LOG_LEVEL Debug
+#define LOG_LEVEL Info
 
 void factory_init();
 void registry_init();

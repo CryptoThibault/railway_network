@@ -6,21 +6,22 @@ T Factory::create(const std::string& name, const FieldMap& map)
         throw std::runtime_error("Creator not found for: " + name);
     void* obj = it->second(map);
     T* typedObj = static_cast<T*>(obj);
-    T result = *typedObj;
+    T result = std::move(*typedObj);
     delete typedObj;
-    return result;
+    return std::move(result);
 }
 
 template <typename T>
 std::vector<T> Factory::createAll(const std::string& name, const FieldVector& vec)
 {
     std::vector<T> result;
+    result.reserve(vec.size());
     for (const auto& obj : vec)
     {
         const FieldMap& map = obj;
-        result.push_back(create<T>(name, map));
+        result.push_back(std::move(create<T>(name, map)));
     }
-    return result;
+    return std::move(result);
 }
 
 template <typename T>
