@@ -5,13 +5,7 @@
 #include "train.hpp"
 #include "train_type.hpp"
 #include "journey.hpp"
+#include "initializer.hpp"
+#include "printer.hpp"
 
 #define LOG_LEVEL Info
-
-void factory_init();
-void registry_init();
-void logger_init();
-
-void printStations();
-void printSegments();
-void printTrains();

@@ -2,16 +2,15 @@
 
 int main()
 {
-    logger_init();
-    factory_init();
-    registry_init();
+    Initializer::initialize();
 
-    printStations();
-    printSegments();
-    printTrains();
+    Printer::printStations();
+    Printer::printSegments();
+    Printer::printTrains();
 
     for (auto& train : *Registry<Train>::instance())
     {
+        Logger::instance()->info() << "Train " << train.getId();
         train.getBoard().currentSegment = Registry<Segment>::instance()->get(0);
         train.transitionTo(TrainState::Waiting);
         train.transitionTo(TrainState::Accelerating);

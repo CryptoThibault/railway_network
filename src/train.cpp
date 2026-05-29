@@ -4,9 +4,7 @@ Train::Train(long id, TrainType type, Station* initialStation)
     : _id(id),
       _board{initialStation},
       _motion(type)
-{
-    state_machine_init();
-}
+{}
 
 void Train::update()
 {

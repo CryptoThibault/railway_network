@@ -13,15 +13,6 @@ void Registry<T>::add(const std::vector<T>& vec)
 }
 
 template <typename T>
-template <typename... Args>
-T* Registry<T>::emplace(Args&&... args)
-{
-    std::lock_guard<std::mutex> lock(_mutex);
-    _objects.emplace_back(std::forward<Args>(args)...);
-    return &_objects.back();
-}
-
-template <typename T>
 void Registry<T>::remove(const std::function<bool(const T&)>& predicate)
 {
     std::lock_guard<std::mutex> lock(_mutex);

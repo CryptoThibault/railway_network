@@ -15,9 +15,6 @@ public:
     void add(const T& obj);
     void add(const std::vector<T>& vec);
     
-    template <typename... Args>
-    T* emplace(Args&&... args);
-    
     void remove(const std::function<bool(const T&)>& predicate);
     void clear();
 

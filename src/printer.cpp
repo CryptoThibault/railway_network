@@ -1,6 +1,6 @@
-#include "network.hpp"
+#include "printer.hpp"
 
-void printStations()
+void Printer::printStations()
 {
     for (auto& s : *Registry<Station>::instance())
     {
@@ -25,7 +25,7 @@ void printStations()
     }
 }
 
-void printSegments()
+void Printer::printSegments()
 {
     for (auto& s : *Registry<Segment>::instance())
     {
@@ -40,7 +40,7 @@ void printSegments()
     }
 }
 
-void printTrains()
+void Printer::printTrains()
 {
     for (auto& t : *Registry<Train>::instance())
     {
