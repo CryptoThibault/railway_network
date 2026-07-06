@@ -26,7 +26,6 @@ void Motion::brake()
     if (_speed < 0.0) _speed = 0.0;
 }
 
-
 const TrainType& Motion::getType() const { return _type; }
 double Motion::getSpeed() const { return _speed; }
 double Motion::getDistance() const { return _distance; }

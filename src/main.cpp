@@ -8,20 +8,21 @@ int main()
     Printer::printSegments();
     Printer::printTrains();
 
-    for (auto& train : *Registry<Train>::instance())
+    auto& train = *Registry<Train>::instance()->get(0);
+    train.getBoard().currentSegment = Registry<Segment>::instance()->get(0);
+    train.transitionTo(TrainState::Waiting);
+    train.transitionTo(TrainState::Accelerating);
+
+    for (int i = 0; i < 600; i++)
     {
-        Logger::instance()->info() << "Train " << train.getId();
-        train.getBoard().currentSegment = Registry<Segment>::instance()->get(0);
-        train.transitionTo(TrainState::Waiting);
-        train.transitionTo(TrainState::Accelerating);
-        for (int i = 0; i < 60; i++) train.update();
-        Logger::instance()->info() << "speed= " << train.getMotion().getSpeed() << " distance= " << train.getMotion().getDistance();
-        train.transitionTo(TrainState::Cruising);
-        for (int i = 0; i < 60; i++) train.update();
-        Logger::instance()->info() << "speed= " << train.getMotion().getSpeed() << " distance= " << train.getMotion().getDistance();
-        train.transitionTo(TrainState::Braking);
-        for (int i = 0; i < 60; i++) train.update();
-        Logger::instance()->info() << "speed= " << train.getMotion().getSpeed() << " distance= " << train.getMotion().getDistance();
+
+        train.update();
+        Logger::instance()->info() << i << "s. "
+            << "Train " << train.getId()
+            << " | distance: " << train.getMotion().getDistance()
+            << " | speed: " << train.getMotion().getSpeed();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     return 0;
