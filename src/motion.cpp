@@ -4,24 +4,24 @@
 
 Motion::Motion(TrainType type) : _type(type) {}
 
-void Motion::move()
+void Motion::move(double seconds)
 {
-    _distance += _speed;
+    _distance += _speed * seconds;
 }
 
-void Motion::accelerate(const Board& board)
+void Motion::accelerate(const Board& board, double seconds)
 {
     double force = _type.engineForce - _type.friction * _speed;
-    _speed += force / _type.mass;
+    _speed += force / _type.mass * seconds;
 
     double maxSpeed = std::min(_type.maxSpeed, board.currentSegment->getMaxSpeed());
     if (_speed > maxSpeed) _speed = maxSpeed;
 }
 
-void Motion::brake()
+void Motion::brake(double seconds)
 {
     double force = -_type.brakeForce - _type.friction * _speed;
-    _speed += force / _type.mass;
+    _speed += force / _type.mass * seconds;
 
     if (_speed < 0.0) _speed = 0.0;
 }

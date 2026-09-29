@@ -20,7 +20,8 @@ public:
     Train(long id, TrainType type, Station* initialStation);
 
     void state_machine_init();
-    void update();
+    void update(double seconds = 1.0);
+    TrainState getState() const;
     void transitionTo(TrainState state);
 
     long getId() const;
@@ -29,6 +30,8 @@ public:
     const Motion& getMotion() const;
     
 private:
+    double _stepSeconds = 1.0;
+    TrainState _state = TrainState::Idle;
     long _id;
     Board _board;
     Motion _motion;

@@ -1,97 +1,126 @@
 #include "network.hpp"
-#include <algorithm>
-#include <cmath>
-#include <filesystem>
+#include "simulation.hpp"
+#include <charconv>
+#include <chrono>
+#include <csignal>
 #include <iostream>
 #include <stdexcept>
+#include <string_view>
+#include <thread>
 
-static void require(bool condition, const char* message)
+static volatile std::sig_atomic_t stopRequested = 0;
+static volatile std::sig_atomic_t pauseRequested = 0;
+static volatile std::sig_atomic_t requestedScale = 60;
+
+static void requestStop(int)
 {
-    if (!condition)
-        throw std::runtime_error(message);
+    stopRequested = 1;
 }
 
-static void checkStopped(Train& train)
+static void requestPause(int signal)
 {
-    const double distance = train.getMotion().getDistance();
-    train.update();
-    require(train.getMotion().getSpeed() == 0.0, "Stopped train has nonzero speed");
-    require(train.getMotion().getDistance() == distance, "Stopped train moved");
+    pauseRequested = signal == SIGUSR1;
 }
 
-static void runPhase(Train& train, TrainState state, int steps, const char* name)
+static void requestScale(int, siginfo_t* information, void*)
 {
-    train.transitionTo(state);
-    const double limit = std::min(train.getMotion().getType().maxSpeed,
-        train.getBoard().currentSegment->getMaxSpeed());
-    require(std::isfinite(limit) && limit > 0.0, "Invalid speed limit");
-
-    for (int step = 0; step < steps; ++step)
-    {
-        const double previousSpeed = train.getMotion().getSpeed();
-        const double previousDistance = train.getMotion().getDistance();
-        train.update();
-        const double speed = train.getMotion().getSpeed();
-        const double distance = train.getMotion().getDistance();
-        require(std::isfinite(speed) && speed >= 0.0 && speed <= limit,
-            "Speed is outside its valid range");
-        require(std::isfinite(distance) && distance >= previousDistance,
-            "Distance is invalid or decreased");
-        if (state == TrainState::Accelerating)
-            require(speed >= previousSpeed, "Speed decreased while accelerating");
-        else if (state == TrainState::Cruising)
-            require(speed == previousSpeed, "Cruising speed changed");
-        else if (state == TrainState::Braking)
-            require(speed <= previousSpeed, "Speed increased while braking");
-    }
-
-    Logger::instance()->info() << name << " | speed: " << train.getMotion().getSpeed()
-        << " | distance: " << train.getMotion().getDistance();
+    const int scale = information->si_value.sival_int;
+    if (scale >= 60 && scale <= 300)
+        requestedScale = scale;
 }
 
-int main()
+int main(int argc, char** argv)
 {
-    Initializer::initialize();
-    Printer::printStations();
-    Printer::printSegments();
-    Printer::printTrains();
-
-    auto* train = Registry<Train>::instance()->get(0);
-    require(train != nullptr, "The demo requires at least one train");
-    auto* station = train->getBoard().currentStation;
-    require(station != nullptr && !station->getSegments().empty(),
-        "The first train requires a station with a connected segment");
-    train->getBoard().currentSegment = station->getSegments().front();
-    require(train->getBoard().currentSegment != nullptr, "Missing segment");
-
-    checkStopped(*train);
-    bool rejected = false;
     try
     {
-        train->transitionTo(TrainState::Cruising);
+        unsigned long steps = 0;
+        for (int argument = 1; argument < argc; argument += 2)
+        {
+            const std::string_view option(argv[argument]);
+            if (argument + 1 >= argc || (option != "--steps" && option != "--speed"))
+                throw std::invalid_argument("Usage: network [--steps positive-count] [--speed 60..300]");
+            const std::string_view value(argv[argument + 1]);
+            unsigned long number = 0;
+            const auto result = std::from_chars(value.data(), value.data() + value.size(), number);
+            if (result.ec != std::errc{} || result.ptr != value.data() + value.size() || number == 0)
+                throw std::invalid_argument("Option value must be a positive integer");
+            if (option == "--steps")
+                steps = number;
+            else
+            {
+                if (number < 60 || number > 300)
+                    throw std::invalid_argument("Speed must be between 60 and 300");
+                requestedScale = static_cast<int>(number);
+            }
+        }
+        struct sigaction scaleAction{};
+        scaleAction.sa_sigaction = requestScale;
+        scaleAction.sa_flags = SA_SIGINFO;
+        sigemptyset(&scaleAction.sa_mask);
+        if (sigaction(SIGRTMIN, &scaleAction, nullptr) != 0)
+            throw std::runtime_error("Cannot configure speed control");
+        std::signal(SIGINT, requestStop);
+        std::signal(SIGTERM, requestStop);
+        std::signal(SIGUSR1, requestPause);
+        std::signal(SIGUSR2, requestPause);
+        Initializer::initialize();
+        auto* train = Registry<Train>::instance()->get(0);
+        if (!train)
+            throw std::runtime_error("The simulation requires a train");
+        Simulation simulation(*train);
+        std::cout << "Single trip | Adjustable simulation speed | Ctrl+C to stop" << std::endl;
+        int scale = requestedScale;
+        simulation.print(std::cout, scale);
+        auto previousFrame = std::chrono::steady_clock::now();
+        auto previousOutput = previousFrame;
+        double accumulated = 0.0;
+        bool wasPaused = false;
+        unsigned long tick = 0;
+        while (!stopRequested && !simulation.isFinished() && (steps == 0 || tick < steps))
+        {
+            const auto now = std::chrono::steady_clock::now();
+            const bool paused = pauseRequested;
+            const int nextScale = requestedScale;
+            const bool controlsChanged = paused != wasPaused || nextScale != scale;
+            if (!paused && !wasPaused && steps == 0)
+                accumulated += std::chrono::duration<double>(now - previousFrame).count() * scale;
+            previousFrame = now;
+            wasPaused = paused;
+            scale = nextScale;
+            bool stateChanged = false;
+            if (!paused)
+            {
+                for (int batch = 0; batch < 600 && !stopRequested && !pauseRequested
+                    && !simulation.isFinished() && (steps == 0 || tick < steps)
+                    && (steps != 0 || accumulated + 1e-9 >= Simulation::stepSeconds); ++batch)
+                {
+                    const auto previousState = train->getState();
+                    simulation.update();
+                    ++tick;
+                    if (steps == 0)
+                        accumulated -= Simulation::stepSeconds;
+                    const bool transition = previousState != train->getState();
+                    stateChanged = stateChanged || transition;
+                    if (steps != 0 && (tick % 100 == 0 || transition))
+                        simulation.print(std::cout, scale);
+                }
+            }
+            if (steps == 0 && (controlsChanged || stateChanged
+                || (!paused && now - previousOutput >= std::chrono::milliseconds(100))))
+            {
+                simulation.print(std::cout, scale);
+                previousOutput = now;
+            }
+            if (steps == 0 || paused)
+                std::this_thread::sleep_until(now + std::chrono::milliseconds(16));
+        }
+        simulation.print(std::cout, scale);
+        std::cout << "Simulation stopped" << std::endl;
+        return 0;
     }
-    catch (const std::invalid_argument&)
+    catch (const std::exception& error)
     {
-        rejected = true;
+        std::cerr << "network: " << error.what() << '\n';
+        return 1;
     }
-    require(rejected, "Idle to Cruising should be rejected");
-
-    train->transitionTo(TrainState::Waiting);
-    checkStopped(*train);
-    runPhase(*train, TrainState::Accelerating, 600, "Acceleration");
-    require(train->getMotion().getSpeed() > 0.0, "Train did not accelerate");
-    const double cruisingStart = train->getMotion().getDistance();
-    const double cruisingSpeed = train->getMotion().getSpeed();
-    runPhase(*train, TrainState::Cruising, 20, "Cruising");
-    require(std::abs(train->getMotion().getDistance() - cruisingStart
-        - cruisingSpeed * 20.0) < 1e-6, "Unexpected cruising distance");
-    runPhase(*train, TrainState::Braking, 600, "Braking");
-    checkStopped(*train);
-    train->transitionTo(TrainState::Waiting);
-    checkStopped(*train);
-    train->transitionTo(TrainState::Idle);
-    checkStopped(*train);
-
-    Logger::instance()->info() << "All demo checks passed";
-    return 0;
 }

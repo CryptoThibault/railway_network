@@ -27,3 +27,8 @@ These rules apply throughout the repository. See [README.md](README.md) for curr
 - Keep changes focused and preserve unrelated work.
 - Build and run relevant checks after functional changes; add focused tests as behavior grows.
 - Avoid premature optimization and speculative architecture.
+
+## Git workflow
+
+- When the user says "push", run `git add . && git commit -m "..." && git push`.
+- Write the commit message in English and describe the main feature added.

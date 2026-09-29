@@ -67,7 +67,7 @@ void Initializer::initFactory()
         {
             static long trainId = 0;
 
-            TrainType trainType = *Registry<TrainType>::instance()->find(
+            const TrainType* trainType = Registry<TrainType>::instance()->find(
                 [&](const TrainType& type)
                 {
                     return type.name == static_cast<std::string>(m.at("type"));
@@ -83,10 +83,12 @@ void Initializer::initFactory()
             
             if (!station)
                 throw std::runtime_error("Train references unknown station");
+            if (!trainType)
+                throw std::runtime_error("Train references unknown type");
 
             return Train(
                 ++trainId,
-                trainType,
+                *trainType,
                 station
             );
         }

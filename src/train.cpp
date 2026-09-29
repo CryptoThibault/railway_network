@@ -1,4 +1,6 @@
 #include "train.hpp"
+#include <cmath>
+#include <stdexcept>
 
 Train::Train(long id, TrainType type, Station* initialStation)
     : _id(id),
@@ -6,15 +8,21 @@ Train::Train(long id, TrainType type, Station* initialStation)
       _motion(type)
 {}
 
-void Train::update()
+void Train::update(double seconds)
 {
+    if (!std::isfinite(seconds) || seconds <= 0.0)
+        throw std::invalid_argument("Simulation step must be positive and finite");
+    _stepSeconds = seconds;
     _stateMachine.update();
 }
 
 void Train::transitionTo(TrainState state)
 {
-    return _stateMachine.transitionTo(state);
+    _stateMachine.transitionTo(state);
+    _state = state;
 }
+
+TrainState Train::getState() const { return _state; }
 
 long Train::getId() const { return _id; }
 Board& Train::getBoard() { return _board; }
@@ -37,19 +45,19 @@ void Train::state_machine_init()
 
     sm.addAction(TrainState::Accelerating, [this]
     {
-        _motion.accelerate(_board);
-        _motion.move();
+        _motion.accelerate(_board, _stepSeconds);
+        _motion.move(_stepSeconds);
     });
 
     sm.addAction(TrainState::Cruising, [this]
     {
-        _motion.move();
+        _motion.move(_stepSeconds);
     });
 
     sm.addAction(TrainState::Braking, [this]
     {
-        _motion.brake();
-        _motion.move();
+        _motion.brake(_stepSeconds);
+        _motion.move(_stepSeconds);
     });
 
     sm.addTransition(TrainState::Idle, TrainState::Waiting, []{});

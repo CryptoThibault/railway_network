@@ -9,9 +9,9 @@ class Motion
 public:
     Motion(TrainType type);
 
-    void move();
-    void accelerate(const Board& board);
-    void brake();
+    void move(double seconds = 1.0);
+    void accelerate(const Board& board, double seconds = 1.0);
+    void brake(double seconds = 1.0);
 
     const TrainType& getType() const;
     double getSpeed() const;
