@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 struct TrainTelemetry
 {
@@ -17,6 +18,9 @@ struct TrainTelemetry
     double position = 0.0;
     double length = 0.0;
     unsigned long legs = 0;
+    std::vector<std::string> stations;
+    std::vector<double> segmentLengths;
+    unsigned long waitingSeconds = 0;
 };
 
 class TelemetryReader

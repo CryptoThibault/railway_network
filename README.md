@@ -1,29 +1,25 @@
 # Railway Network
 
-Railway Network brings together stations, tracks, and trains to simulate train
-movement, from acceleration to braking. Future features will include network
-visualization, complete journeys, and route planning.
+Follow a train from **Paris to Marseille via Lyon**, with acceleration, cruising,
+braking, and passenger stops. A live dashboard shows the train moving between
+stations, its speed and state, and adjustable playback from 60× to 300×.
 
-## Console build
+## Build and run
 
-Requires Linux, Make, and a C++20 compiler. The original Makefiles remain unchanged:
+Requires Linux, Make, and a C++20 compiler. For the console simulation:
 
 ```sh
 make
 ./network
 ```
 
-Run the console simulation from the repository root so it can load `data.json`.
-The executable is generated at the root. `make clean` removes its object files,
-`make fclean` also removes `network`, and `make re` rebuilds it.
-The root Makefile calls `lib/Makefile` to build the utility archive when missing.
+Run from the repository root to load `data.json`. The executable is `./network`.
+Use Ctrl+C to stop, or `./network --speed 300` for faster playback. The `--speed`
+option accepts integers from 60 to 300.
 
-## Desktop build
-
-CMake orchestrates the existing Makefile build and builds the graphical application
-separately. Requires CMake 3.20 or later, pkg-config, and X11/Xft development
-headers (`libx11-dev` and `libxft-dev` on Debian/Ubuntu), in addition to the console build dependencies. Tests also require
-Python 3; configure with `-DBUILD_TESTING=OFF` to omit them.
+The desktop dashboard also requires CMake 3.20+, pkg-config, X11/Xft development
+headers (`libx11-dev` and `libxft-dev` on Debian/Ubuntu), and an X11 or XWayland
+session. Tests require Python 3; configure with `-DBUILD_TESTING=OFF` to omit them.
 
 ```sh
 cmake -S . -B build
@@ -31,97 +27,86 @@ cmake --build build --parallel
 ./build/network_window
 ```
 
-Each CMake build invokes the root Makefile, which checks whether `network` needs
-rebuilding. CMake does not reimplement compilation of the simulation or library.
-The desktop executable stays in `build/`; the console executable stays at the root.
-CMake clean affects its graphical build artifacts; use `make clean` or `make fclean`
-for the console build.
+CMake invokes the existing root Makefile to build `network`, then builds the
+separate dashboard in `build/`. Both Makefiles remain unchanged. `make clean`
+removes console objects; `make fclean` also removes `network`. CMake's clean target
+cleans its own artifacts. The library retains its standalone build and examples.
 
-`network_window` opens a resizable 1024 × 720 dashboard in an X11 or XWayland
-desktop session. Fixed cards show speed, train state, and simulated time. The route
-panel shows departure, destination, distance, completed legs, and a train drawing moving along the track. Values update in place, with smooth fonts and double-buffered drawing.
+## Dashboard controls
 
-- Click Start or press Enter to launch the repository's `network` executable.
-- Click Stop or press Enter again to stop the simulation. You can then restart it.
-  The window stays responsive and shows running, stopped, or failure status.
-- Click Pause or press Space to freeze the train and clock. Click Resume or press
-  Space again to continue without catching up on paused time. Pause is available
-  once the running simulation has sent its first update.
-- Select **1h–5h** in the clock card, or press **1–5**, to choose how many simulated
-  hours pass per real minute (60×, 120×, 180×, 240×, or 300×). Changes apply during
-  a run or while paused, without restarting. The selection is kept for the next run.
-- Stopping preserves the last displayed values; starting again resets the dashboard.
-  Launch and process errors appear in the status line.
-- Press Escape or use the desktop close button to close the window and stop its
-  simulation process.
+| Control | Action |
+| --- | --- |
+| Start / Stop or Enter | Start a fresh trip or stop the current one |
+| Pause / Resume or Space | Freeze or resume the train and clock without catching up |
+| 1h–5h buttons or keys 1–5 | Select simulated hours per real minute: 60×–300× |
+| Escape or window close | Close the dashboard and stop its simulation process |
 
-The launcher uses the repository path recorded by CMake, so it works from another
-working directory. Reconfigure after moving the repository. Simulation graphics
-are not displayed yet; graphical code remains separate from simulation code.
-The launcher reads the console process through a pipe and displays the latest complete
-telemetry update. Partial or invalid lines do not replace valid values. Raw console
-output stays available when running `./network` directly.
+Speed can change during playback or while paused and is retained for the next run.
+Pause becomes available after the first simulation update. Stopping preserves the
+last values; restarting resets them.
 
-## Simulation and checks
+Fixed cards show speed, train state, simulated time, and the passenger-stop
+countdown. The schematic route shows all three named stations, platforms, and a
+train with a streamlined cab, carriage, and pantograph. Overall progress covers
+736 km; the active segment's distance is shown separately.
 
-The first train makes one trip along its first connected segment, Paris–Lyon
-in the sample. It waits 30 simulated seconds before departure, accelerates, cruises,
-and brakes to a stop at the destination. Arrival ends the simulation automatically;
-the dashboard keeps the final values and Start becomes available again. Other trains and loaded journeys remain
-inactive. Routing across multiple segments is not implemented.
+The dashboard launches the root executable using the repository path recorded by
+CMake, so it works from another directory. Reconfigure after moving the repository.
+Launch and process failures appear in the status line. Console output remains
+available by running `./network` directly.
 
-Playback defaults to **60×** and can be increased to **300×: five simulated hours
-per real minute**. For console use, run `./network --speed 300` (any integer from
-60 to 300 is accepted).
+## Simulation behavior
 
-A steady-clock accumulator advances motion in fixed 0.1-second simulated steps,
-processed in batches about every 16 ms. Changing speed affects the clock rate, not
-the physics step. Dashboard updates are limited to about ten per second, with
-additional updates for state or control changes. The dashboard shows:
+The first train follows two segments: Paris–Lyon (427 km), then Lyon–Marseille
+(309 km). At **each station**, it spends **10 simulated minutes in `Waiting`** for
+passengers. It accelerates, cruises, and brakes on each segment. The simulation
+ends after the final passenger stop in Marseille; it does not start a return trip.
+Each station stop takes 10 real seconds at 60× or 2 seconds at 300×.
 
-- Simulated time, train ID, and train type.
-- State: Waiting, Accelerating, Cruising, or Braking.
-- Speed in km/h and position along the current leg in kilometres.
-- Departure, destination, and completed legs.
+Motion uses fixed 0.1-second simulated steps, processed in batches about every
+16 ms using a steady clock. Playback speed changes the clock rate, not the physics.
+Telemetry is emitted about ten times per second and on state or control changes.
+The dashboard validates complete telemetry lines, draws through a back buffer,
+and skips unchanged mouse-hover redraws. It sleeps until a window event when no
+process or pending output needs attention.
 
-Position is measured from the departure station and reaches the segment length on arrival.
-Braking uses a simple stopping-distance estimate; once stopped within two steps of
-travel at the speed limit, the train is placed at the station. This is an approximate
-trip controller, not a timetable or signalling system. The sample's 427 km leg
-takes roughly 85 real seconds at 60× or 17 seconds at 300×, including acceleration,
-braking, and station dwell.
-Press Ctrl+C to stop a console run.
+Braking uses a stopping-distance estimate. Once stopped within two steps of travel
+at the speed limit, the train is placed at the station. This is an approximate
+controller, without signalling or collision handling. The route is selected
+explicitly; other trains and loaded journey schedules remain inactive.
 
-For a deterministic run without real-time delays, use `./network --steps 200000`
-(each step represents 0.1 simulated seconds). Normal launch runs until arrival or a manual stop.
-
-After a CMake build, run the tests:
+## Checks
 
 ```sh
 ctest --test-dir build --output-on-failure
 ```
 
-No display is required. Tests cover automatic termination after one trip, states, speed and
-position bounds, identical physics at all five presets, clock pacing at 60× and
-300×, live speed changes, argument validation, output capture, stopping,
-restarting, pause/resume without clock catch-up, telemetry parsing, and launch
-failures. To check the window manually, click Start, watch the fixed values and
-train drawing advance, then try the speed presets, Pause, Resume, Stop, resizing,
-and Escape.
-Library examples remain available through `lib/Makefile`.
+Tests run without a display and cover both segments, all three passenger stops,
+final termination, speed and position bounds, identical physics across presets,
+live speed changes, pause/resume, telemetry parsing, and process lifecycle.
+
+For a deterministic console run without real-time delays:
+
+```sh
+./network --steps 200000
+```
+
+The step count is an upper limit; the run ends earlier if the route is complete.
+For a visual check, launch the dashboard, resize it, and exercise Start, Pause,
+Resume, the speed presets, and Stop while watching the station labels and train.
 
 ## Project structure
 
+- `inc/`, `src/`: data loading, railway logic, and console entry point.
+- `gui/`: dashboard, process control, and telemetry decoding.
+- `tests/`: simulation and launcher checks.
+- `lib/`: generic utilities with their own Makefile and examples.
+- `data.json`: sample stations, segments, train types, trains, and journey schedules.
+
 Development guidelines are in [AGENTS.md](AGENTS.md).
 
-- `inc/` and `src/`: railway logic, data loading, console presentation, and simulation entry point.
-- `gui/`: desktop entry point and window implementation, built only by CMake.
-- `lib/`: generic utilities and their standalone Makefile.
-- `data.json`: sample scenario containing three stations, two segments, five train
-  types, and three trains.
+## Planned features
 
-## Next steps
-
-- Add a graphical railway map alongside the train dashboard.
-- Simulate multiple trains on a shared clock.
-- Support complete journeys and route planning.
+- A geographical railway map.
+- Multiple active trains on a shared clock.
+- Journey schedules and automatic route planning.

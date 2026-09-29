@@ -20,6 +20,7 @@ public:
     void setTimeScale(int scale);
     int getTimeScale() const;
     bool update();
+    bool needsUpdate() const;
     bool isRunning() const;
     const std::string& getStatus() const;
     const std::string& getOutput() const;

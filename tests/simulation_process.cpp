@@ -63,6 +63,13 @@ int main(int argc, char** argv)
         require(!reader.getSnapshot(), "Telemetry reset failed");
         reader.append(std::string(9000, 'x') + "\n" + sample + "\n");
         require(reader.getSnapshot().has_value(), "Telemetry did not recover after an oversized line");
+        reader.append(sample + " | Route: Paris -> Lyon -> Marseille | Lengths: 427.0,309.0 | Wait: 600\n");
+        require(reader.getSnapshot()->stations.size() == 3
+            && reader.getSnapshot()->stations[1] == "Lyon"
+            && reader.getSnapshot()->segmentLengths[1] == 309.0
+            && reader.getSnapshot()->waitingSeconds == 600, "Route telemetry was not decoded");
+        reader.append(sample + " | Route: Paris -> Marseille | Lengths: 736.0 | Wait: 0\n");
+        require(reader.getSnapshot()->stations.size() == 3, "Disconnected telemetry replaced the route");
         SimulationProcess simulation(argv[1]);
         require(!simulation.isRunning(), "Simulation started before requested");
         for (int run = 0; run < 2; ++run)
@@ -78,7 +85,7 @@ int main(int argc, char** argv)
                 simulation.update();
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
-            require(simulation.isRunning(), "Continuous simulation exited unexpectedly");
+            require(simulation.isRunning(), "Simulation exited before completing its route");
             require(simulation.getOutput().find("Speed:") != std::string::npos,
                 "Train telemetry was not captured");
             require(simulation.getTelemetry().has_value(), "Dashboard telemetry is missing");
@@ -106,6 +113,8 @@ int main(int argc, char** argv)
             simulation.stop();
             require(!simulation.isPaused(), "Stop retained the pause state");
             require(!simulation.isRunning(), "Simulation did not stop");
+            simulation.update();
+            require(!simulation.needsUpdate(), "Stopped process kept its output pipe open");
             require(simulation.getStatus() == "Simulation stopped", "Stop status missing");
         }
         simulation.setTimeScale(120);

@@ -1,6 +1,7 @@
 #include "telemetry.hpp"
 #include <cmath>
 #include <regex>
+#include <sstream>
 
 void TelemetryReader::append(std::string_view text)
 {
@@ -28,7 +29,7 @@ void TelemetryReader::append(std::string_view text)
 void TelemetryReader::parse(const std::string& line)
 {
     static const std::regex pattern(
-        R"(^Time (\d+h\d+m\d+s) \| (\d+)x \| Train (\d+) \(([^)]+)\) \| State: (Waiting|Accelerating|Cruising|Braking|Idle) \| Speed: (\d+(?:\.\d+)?) km/h \| Segment: (.+?) -> (.+?) \| Position: (\d+(?:\.\d+)?) / (\d+(?:\.\d+)?) km \| Legs: (\d+)$)");
+        R"(^Time (\d+h\d+m\d+s) \| (\d+)x \| Train (\d+) \(([^)]+)\) \| State: (Waiting|Accelerating|Cruising|Braking|Idle) \| Speed: (\d+(?:\.\d+)?) km/h \| Segment: (.+?) -> (.+?) \| Position: (\d+(?:\.\d+)?) / (\d+(?:\.\d+)?) km \| Legs: (\d+)(?: \| Route: (.+) \| Lengths: ([\d.,]+) \| Wait: (\d+))?$)");
     std::smatch match;
     if (!std::regex_match(line, match, pattern))
         return;
@@ -50,6 +51,43 @@ void TelemetryReader::parse(const std::string& line)
             || !std::isfinite(value.length) || value.length <= 0.0
             || value.position > value.length)
             return;
+        if (match[12].matched)
+        {
+            std::string route = match[12];
+            std::size_t start = 0;
+            while (true)
+            {
+                const auto end = route.find(" -> ", start);
+                value.stations.push_back(route.substr(start, end == std::string::npos ? end : end - start));
+                if (end == std::string::npos)
+                    break;
+                start = end + 4;
+            }
+            std::istringstream lengths(match[13].str());
+            std::string item;
+            while (std::getline(lengths, item, ','))
+            {
+                std::size_t consumed = 0;
+                const double length = std::stod(item, &consumed);
+                if (consumed != item.size() || !std::isfinite(length) || length <= 0)
+                    return;
+                value.segmentLengths.push_back(length);
+            }
+            if (value.stations.size() != value.segmentLengths.size() + 1 || value.segmentLengths.empty())
+                return;
+            bool connected = false;
+            for (std::size_t index = 0; index < value.segmentLengths.size(); ++index)
+            {
+                if (value.stations[index].empty() || value.stations[index + 1].empty())
+                    return;
+                if (value.stations[index] == value.departure && value.stations[index + 1] == value.destination
+                    && std::abs(value.segmentLengths[index] - value.length) < 0.001)
+                    connected = true;
+            }
+            if (!connected)
+                return;
+            value.waitingSeconds = std::stoul(match[14]);
+        }
         snapshot = std::move(value);
     }
     catch (const std::exception&)

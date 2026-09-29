@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <thread>
+#include <utility>
 
 static volatile std::sig_atomic_t stopRequested = 0;
 static volatile std::sig_atomic_t pauseRequested = 0;
@@ -67,7 +68,16 @@ int main(int argc, char** argv)
         auto* train = Registry<Train>::instance()->get(0);
         if (!train)
             throw std::runtime_error("The simulation requires a train");
-        Simulation simulation(*train);
+        std::vector<Station*> route;
+        for (const std::string name : {"Paris", "Lyon", "Marseille"})
+        {
+            auto* station = Registry<Station>::instance()->find(
+                [&](const Station& candidate) { return candidate.getName() == name; });
+            if (!station)
+                throw std::runtime_error("Route references missing station: " + name);
+            route.push_back(station);
+        }
+        Simulation simulation(*train, std::move(route));
         std::cout << "Single trip | Adjustable simulation speed | Ctrl+C to stop" << std::endl;
         int scale = requestedScale;
         simulation.print(std::cout, scale);

@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <poll.h>
 #include <sstream>
+#include <numeric>
+#include <vector>
 #include <stdexcept>
 #include <string>
 
@@ -157,21 +159,74 @@ struct ApplicationWindow::Implementation
             reinterpret_cast<const FcChar8*>(value.data()), value.size());
     }
 
+    void drawStation(int center, int railY, const std::string& name)
+    {
+        const int labelWidth = std::min(180, 2 * std::min(center - 58, width - 58 - center));
+        const int nameWidth = std::min(textWidth(name, 1), labelWidth);
+        text(name, center - nameWidth / 2, railY - 82, 1, Text, labelWidth);
+        rectangle(center - 7, railY - 30, 14, 28, Border);
+        rectangle(center - 5, railY - 30, 10, 28, Muted);
+        rectangle(center - 32, railY - 5, 64, 5, Border);
+        rectangle(center - 32, railY - 2, 64, 2, Amber);
+        rectangle(center - 24, railY - 53, 48, 23, Border);
+        XPoint roof[]{
+            {static_cast<short>(center - 30), static_cast<short>(railY - 53)},
+            {static_cast<short>(center), static_cast<short>(railY - 68)},
+            {static_cast<short>(center + 30), static_cast<short>(railY - 53)}
+        };
+        XSetForeground(display, graphics, colors[Blue].pixel);
+        XFillPolygon(display, buffer, graphics, roof, 3, Convex, CoordModeOrigin);
+        rectangle(center - 5, railY - 46, 10, 16, Background);
+        rectangle(center - 18, railY - 46, 8, 8, Amber);
+        rectangle(center + 10, railY - 46, 8, 8, Amber);
+        rounded(center - 32, railY - 30, 64, 4, 2, Muted);
+    }
+
     void drawTrain(int center, int railY)
     {
-        const int x = center - 30;
-        rounded(x, railY - 29, 60, 24, 8, Mint);
-        rectangle(x + 5, railY - 12, 49, 5, Blue);
-        rounded(x + 8, railY - 25, 11, 9, 2, Background);
-        rounded(x + 24, railY - 25, 11, 9, 2, Background);
-        rounded(x + 43, railY - 25, 10, 9, 2, Background);
-        rectangle(x + 57, railY - 15, 3, 4, Text);
-        for (int wheel : {13, 46})
+        const int x = center - 52;
+        rounded(x, railY - 27, 45, 20, 4, Text);
+        rectangle(x + 4, railY - 13, 38, 4, Blue);
+        rectangle(x + 45, railY - 20, 5, 11, Muted);
+        rectangle(x + 46, railY - 18, 3, 7, Background);
+
+        XPoint cab[]{
+            {static_cast<short>(x + 50), static_cast<short>(railY - 27)},
+            {static_cast<short>(x + 78), static_cast<short>(railY - 27)},
+            {static_cast<short>(x + 88), static_cast<short>(railY - 22)},
+            {static_cast<short>(x + 104), static_cast<short>(railY - 11)},
+            {static_cast<short>(x + 101), static_cast<short>(railY - 7)},
+            {static_cast<short>(x + 50), static_cast<short>(railY - 7)}
+        };
+        XSetForeground(display, graphics, colors[Mint].pixel);
+        XFillPolygon(display, buffer, graphics, cab, 6, Convex, CoordModeOrigin);
+        rectangle(x + 52, railY - 13, 42, 4, Blue);
+        XPoint windshield[]{
+            {static_cast<short>(x + 77), static_cast<short>(railY - 24)},
+            {static_cast<short>(x + 85), static_cast<short>(railY - 20)},
+            {static_cast<short>(x + 91), static_cast<short>(railY - 16)},
+            {static_cast<short>(x + 79), static_cast<short>(railY - 16)}
+        };
+        XSetForeground(display, graphics, colors[Background].pixel);
+        XFillPolygon(display, buffer, graphics, windshield, 4, Convex, CoordModeOrigin);
+        for (int window : {6, 17, 28, 56, 67})
+            rounded(x + window, railY - 23, 7, 7, 2, Background);
+        rectangle(x + 98, railY - 12, 4, 2, Amber);
+
+        XSetForeground(display, graphics, colors[Muted].pixel);
+        XDrawLine(display, buffer, graphics, x + 57, railY - 28, x + 65, railY - 34);
+        XDrawLine(display, buffer, graphics, x + 65, railY - 34, x + 58, railY - 38);
+        rectangle(x + 53, railY - 39, 16, 2, Muted);
+        for (int bogie : {8, 31, 55, 81})
         {
-            XSetForeground(display, graphics, colors[Background].pixel);
-            XFillArc(display, buffer, graphics, x + wheel - 5, railY - 10, 10, 10, 0, 360 * 64);
-            XSetForeground(display, graphics, colors[Muted].pixel);
-            XFillArc(display, buffer, graphics, x + wheel - 2, railY - 7, 4, 4, 0, 360 * 64);
+            rounded(x + bogie - 2, railY - 8, 14, 5, 2, Track);
+            for (int wheel : {0, 7})
+            {
+                XSetForeground(display, graphics, colors[Background].pixel);
+                XFillArc(display, buffer, graphics, x + bogie + wheel, railY - 6, 6, 6, 0, 360 * 64);
+                XSetForeground(display, graphics, colors[Muted].pixel);
+                XFillArc(display, buffer, graphics, x + bogie + wheel + 2, railY - 4, 2, 2, 0, 360 * 64);
+            }
         }
     }
 
@@ -226,6 +281,11 @@ struct ApplicationWindow::Implementation
         const Shade stateShade = state == "Braking" ? Amber : (state == "Cruising" ? Blue : Mint);
         text("TRAIN STATE", stateX + 22, 163, 0, Muted);
         text(state, stateX + 22, 227, 1, stateShade, column - 44);
+        if (telemetry && telemetry->state == "Waiting")
+            text(telemetry->waitingSeconds == 0 ? "Passenger stop complete"
+                : "Boarding: " + std::to_string(telemetry->waitingSeconds / 60) + "m "
+                    + std::to_string(telemetry->waitingSeconds % 60) + "s",
+                stateX + 22, 260, 0, Amber, column - 44);
         text(telemetry ? telemetry->type + " / Train " + telemetry->train : "Awaiting departure",
             stateX + 22, 290, 0, Muted, column - 44);
 
@@ -248,28 +308,55 @@ struct ApplicationWindow::Implementation
 
         const int routeHeight = std::max(230, height - 450);
         card(36, 342, width - 72, routeHeight);
-        text("CURRENT SEGMENT", 58, 375, 0, Muted);
-        const std::string departure = telemetry ? telemetry->departure : "Departure";
-        const std::string destination = telemetry ? telemetry->destination : "Destination";
-        text(departure, 58, 421, 2, Text, (width - 140) / 2);
-        text(destination, width / 2 + 20, 421, 2, Text, (width - 140) / 2);
-        text("FROM", 58, 447, 0, Muted);
-        text("TO", width / 2 + 20, 447, 0, Muted);
-
-        const int trackWidth = width - 140;
-        const double ratio = telemetry ? std::clamp(telemetry->position / telemetry->length, 0.0, 1.0) : 0.0;
-        for (int sleeper = 70; sleeper <= width - 70; sleeper += 18)
-            rectangle(sleeper, 481, 4, 13, Border);
-        rectangle(70, 483, trackWidth, 2, Track);
-        rectangle(70, 490, trackWidth, 2, Track);
+        text("ROUTE", 58, 375, 0, Muted);
+        static const std::vector<std::string> defaultStations{"Paris", "Lyon", "Marseille"};
+        static const std::vector<double> defaultLengths{427.0, 309.0};
+        const auto& stations = telemetry && !telemetry->stations.empty()
+            ? telemetry->stations : defaultStations;
+        const auto& lengths = telemetry && !telemetry->segmentLengths.empty()
+            ? telemetry->segmentLengths : defaultLengths;
+        const double totalLength = std::accumulate(lengths.begin(), lengths.end(), 0.0);
+        double totalPosition = 0.0;
+        if (telemetry)
+        {
+            for (std::size_t index = 0; index < lengths.size(); ++index)
+            {
+                if (stations[index] == telemetry->departure && stations[index + 1] == telemetry->destination)
+                {
+                    totalPosition += telemetry->position;
+                    break;
+                }
+                totalPosition += lengths[index];
+            }
+            text(telemetry->departure + " -> " + telemetry->destination + "  /  "
+                + decimal(telemetry->position) + " of " + decimal(telemetry->length) + " km",
+                58, 399, 0, Muted, width - 116);
+        }
+        const int trackStart = 140;
+        const int trackEnd = width - 140;
+        const int trackWidth = trackEnd - trackStart;
+        const int railY = 513;
+        const double ratio = std::clamp(totalPosition / totalLength, 0.0, 1.0);
+        double stationDistance = 0.0;
+        for (std::size_t index = 0; index < stations.size(); ++index)
+        {
+            drawStation(trackStart + static_cast<int>(trackWidth * stationDistance / totalLength),
+                railY, stations[index]);
+            if (index < lengths.size())
+                stationDistance += lengths[index];
+        }
+        for (int sleeper = trackStart; sleeper <= trackEnd; sleeper += 18)
+            rectangle(sleeper, railY - 2, 4, 13, Border);
+        rectangle(trackStart, railY, trackWidth, 2, Track);
+        rectangle(trackStart, railY + 7, trackWidth, 2, Track);
         const int progress = static_cast<int>(trackWidth * ratio);
         if (progress > 0)
-            rectangle(70, 490, progress, 2, Mint);
-        drawTrain(70 + progress, 483);
-        text(telemetry ? decimal(telemetry->position) + " / " + decimal(telemetry->length) + " km" : "-- / -- km",
-            58, 529, 1, Text);
+            rectangle(trackStart, railY + 7, progress, 2, Mint);
+        drawTrain(trackStart + progress, railY);
+        text(decimal(totalPosition) + " / " + decimal(totalLength) + " km",
+            58, 559, 1, Text);
         const std::string percent = decimal(ratio * 100.0) + "%";
-        text(percent, width - 58 - textWidth(percent, 1), 529, 1, Mint);
+        text(percent, width - 58 - textWidth(percent, 1), 559, 1, Mint);
         const std::string legs = "Completed legs: " + (telemetry ? std::to_string(telemetry->legs) : "0");
         text(legs, width - 58 - textWidth(legs, 0), 375, 0, Muted);
 
@@ -336,7 +423,7 @@ void ApplicationWindow::run()
         if (XPending(state.display) == 0)
         {
             pollfd connection{ConnectionNumber(state.display), POLLIN, 0};
-            const int result = poll(&connection, 1, 50);
+            const int result = poll(&connection, 1, state.simulation.needsUpdate() ? 50 : -1);
             if (result < 0 && errno != EINTR)
                 throw std::runtime_error("Cannot wait for window events");
             if (connection.revents & (POLLERR | POLLHUP | POLLNVAL))
@@ -354,6 +441,8 @@ void ApplicationWindow::run()
             state.handle = 0;
             return;
         }
+        if (event.type == Expose && event.xexpose.count > 0)
+            continue;
         if (event.type == KeyPress)
         {
             const KeySym key = XLookupKeysym(&event.xkey, 0);
@@ -370,14 +459,21 @@ void ApplicationWindow::run()
         }
         else if (event.type == ConfigureNotify)
         {
+            if (state.width == event.xconfigure.width && state.height == event.xconfigure.height)
+                continue;
             state.width = event.xconfigure.width;
             state.height = event.xconfigure.height;
         }
         else if (event.type == MotionNotify)
         {
-            state.hovered = state.insideButton(event.xmotion.x, event.xmotion.y);
-            state.pauseHovered = state.insidePause(event.xmotion.x, event.xmotion.y);
-            state.speedHovered = state.speedAt(event.xmotion.x, event.xmotion.y);
+            const bool hovered = state.insideButton(event.xmotion.x, event.xmotion.y);
+            const bool pauseHovered = state.insidePause(event.xmotion.x, event.xmotion.y);
+            const int speedHovered = state.speedAt(event.xmotion.x, event.xmotion.y);
+            if (hovered == state.hovered && pauseHovered == state.pauseHovered && speedHovered == state.speedHovered)
+                continue;
+            state.hovered = hovered;
+            state.pauseHovered = pauseHovered;
+            state.speedHovered = speedHovered;
         }
         else if (event.type == LeaveNotify || event.type == FocusOut)
         {

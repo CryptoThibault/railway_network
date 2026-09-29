@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <ostream>
 #include <stdexcept>
+#include <utility>
 
 static const char* stateName(TrainState state)
 {
@@ -18,17 +19,32 @@ static const char* stateName(TrainState state)
     return "Unknown";
 }
 
-Simulation::Simulation(Train& train) : _train(train),
-    _departure(train.getBoard().currentStation), _destination(nullptr)
+Simulation::Simulation(Train& train, std::vector<Station*> stations)
+    : _train(train), _stations(std::move(stations)),
+      _departure(train.getBoard().currentStation), _destination(nullptr)
 {
-    if (!_departure || _departure->getSegments().empty())
-        throw std::runtime_error("The train needs a station with a connected segment");
-    auto* segment = _departure->getSegments().front();
-    if (!segment || !segment->getStationA() || !segment->getStationB()
-        || (segment->getStationA() != _departure && segment->getStationB() != _departure)
-        || !std::isfinite(segment->getLength()) || segment->getLength() <= 0.0
-        || !std::isfinite(segment->getMaxSpeed()) || segment->getMaxSpeed() <= 0.0)
-        throw std::runtime_error("Invalid simulation segment");
+    if (_stations.size() < 2 || !_departure || _stations.front() != _departure)
+        throw std::runtime_error("The route must start at the train's station");
+    std::vector<Segment*> path;
+    for (std::size_t index = 1; index < _stations.size(); ++index)
+    {
+        auto* from = _stations[index - 1];
+        auto* to = _stations[index];
+        if (!from || !to || from == to)
+            throw std::runtime_error("Invalid route station");
+        Segment* connection = nullptr;
+        for (auto* segment : from->getSegments())
+            if (segment && ((segment->getStationA() == from && segment->getStationB() == to)
+                || (segment->getStationB() == from && segment->getStationA() == to)))
+            {
+                connection = segment;
+                break;
+            }
+        if (!connection || !std::isfinite(connection->getLength()) || connection->getLength() <= 0.0
+            || !std::isfinite(connection->getMaxSpeed()) || connection->getMaxSpeed() <= 0.0)
+            throw std::runtime_error("Missing or invalid route segment");
+        path.push_back(connection);
+    }
     const auto& type = train.getMotion().getType();
     if (!std::isfinite(type.mass) || type.mass <= 0.0
         || !std::isfinite(type.engineForce) || type.engineForce <= 0.0
@@ -36,9 +52,10 @@ Simulation::Simulation(Train& train) : _train(train),
         || !std::isfinite(type.friction) || type.friction < 0.0
         || !std::isfinite(type.maxSpeed) || type.maxSpeed <= 0.0)
         throw std::runtime_error("Invalid train motion parameters");
-    _destination = segment->getStationA() == _departure
-        ? segment->getStationB() : segment->getStationA();
-    train.getBoard().currentSegment = segment;
+    _destination = _stations[1];
+    train.getBoard().path = std::move(path);
+    train.getBoard().pathIndex = 0;
+    train.getBoard().currentSegment = train.getBoard().path.front();
     train.getBoard().segmentProgress = 0.0;
     train.transitionTo(TrainState::Waiting);
 }
@@ -53,9 +70,18 @@ void Simulation::update()
     const auto& type = motion.getType();
     if (_train.getState() == TrainState::Waiting)
     {
-        _waiting -= stepSeconds;
+        _waiting = std::max(0.0, _waiting - stepSeconds);
         if (_waiting > 1e-8)
             return;
+        if (_completedLegs == board.path.size())
+        {
+            _finished = true;
+            return;
+        }
+        board.pathIndex = _completedLegs;
+        board.currentSegment = board.path[board.pathIndex];
+        _departure = _stations[board.pathIndex];
+        _destination = _stations[board.pathIndex + 1];
         board.segmentProgress = 0.0;
         board.currentStation = nullptr;
         _train.transitionTo(TrainState::Accelerating);
@@ -86,8 +112,8 @@ void Simulation::update()
         board.segmentProgress = board.currentSegment->getLength();
         board.currentStation = _destination;
         ++_completedLegs;
+        _waiting = passengerStopSeconds;
         _train.transitionTo(TrainState::Waiting);
-        _train.transitionTo(TrainState::Idle);
     }
 }
 
@@ -103,10 +129,25 @@ void Simulation::print(std::ostream& output, int timeScale) const
         << " | Segment: " << _departure->getName() << " -> " << _destination->getName()
         << " | Position: " << board.segmentProgress / 1000.0 << " / "
         << board.currentSegment->getLength() / 1000.0 << " km"
-        << " | Legs: " << _completedLegs << std::endl;
+        << " | Legs: " << _completedLegs << " | Route: ";
+    for (std::size_t index = 0; index < _stations.size(); ++index)
+    {
+        if (index > 0)
+            output << " -> ";
+        output << _stations[index]->getName();
+    }
+    output << " | Lengths: ";
+    for (std::size_t index = 0; index < board.path.size(); ++index)
+    {
+        if (index > 0)
+            output << ',';
+        output << board.path[index]->getLength() / 1000.0;
+    }
+    output << " | Wait: " << static_cast<unsigned long>(std::ceil(std::max(0.0, _waiting - 1e-8)))
+        << std::endl;
 }
 
 double Simulation::getElapsedSeconds() const { return _elapsed; }
 unsigned long Simulation::getCompletedLegs() const { return _completedLegs; }
 
-bool Simulation::isFinished() const { return _completedLegs == 1; }
+bool Simulation::isFinished() const { return _finished; }

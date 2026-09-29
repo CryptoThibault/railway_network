@@ -32,7 +32,13 @@ bool SimulationProcess::readOutput()
         const ssize_t count = read(capture, buffer, sizeof(buffer));
         if (count < 0 && errno == EINTR)
             continue;
-        if (count <= 0)
+        if (count == 0)
+        {
+            close(capture);
+            capture = -1;
+            break;
+        }
+        if (count < 0)
             break;
         telemetry.append(std::string_view(buffer, static_cast<std::size_t>(count)));
         output.append(buffer, static_cast<std::size_t>(count));
@@ -51,6 +57,10 @@ void SimulationProcess::start()
 
     paused = false;
     telemetry.reset();
+    output.clear();
+    if (capture >= 0)
+        close(capture);
+    capture = -1;
     const auto executable = directory / "network";
     if (access(executable.c_str(), X_OK) != 0)
     {
@@ -58,10 +68,6 @@ void SimulationProcess::start()
         return;
     }
 
-    if (capture >= 0)
-        close(capture);
-    capture = -1;
-    output.clear();
     int descriptors[2];
     if (pipe2(descriptors, O_CLOEXEC) < 0)
     {
@@ -204,4 +210,9 @@ void SimulationProcess::setTimeScale(int scale)
 int SimulationProcess::getTimeScale() const
 {
     return timeScale;
+}
+
+bool SimulationProcess::needsUpdate() const
+{
+    return isRunning() || capture >= 0;
 }
