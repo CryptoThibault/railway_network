@@ -1,13 +1,13 @@
 #pragma once
-#include <string>
 
-struct TrainType
+struct TrainParameters
 {
-    std::string name;
     double mass;
     double maxSpeed;
     double engineForce;
     double brakeForce;
     double friction;
     double length;
+
+    void validate() const;
 };

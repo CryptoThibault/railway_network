@@ -4,6 +4,7 @@ LIB_PATH = $(LIB_DIR)/$(LIB_NAME)
 
 SRC_DIR = src
 OBJ_DIR = obj
+LOG_DIR = log
 INC_DIR = inc
 LIB_DIR = lib
 
@@ -39,8 +40,8 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEP)
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	@printf "$(YELLOW)[${NAME}] clean objects$(RESET)\n"
-	@rm -rf $(OBJ_DIR)
+	@printf "$(YELLOW)[${NAME}] clean objects and logs$(RESET)\n"
+	@rm -rf $(OBJ_DIR) $(LOG_DIR)
 
 fclean: clean
 	@printf "$(YELLOW)[${NAME}] remove $(NAME)$(RESET)\n"

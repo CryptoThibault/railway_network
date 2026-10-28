@@ -1,32 +1,31 @@
 # Project Guidelines
 
-These rules apply throughout the repository. See [README.md](README.md) for current behavior.
+These rules apply throughout the repository. See [README.md](README.md) for current
+behavior and [TASKS.md](TASKS.md) for priorities.
 
-## Language and documentation
+## Scope and documentation
 
-- Keep all project content in English, including code, documentation, and messages.
-- Do not add comments to code files. Explain behavior and design in the README.
-- Keep documentation concise and update it as features are implemented.
-- Separate existing functionality from future plans.
+- Do not modify `lib/`; it is outside the current development scope.
+- Treat `gui/` as a demo, not the target interface.
+- Keep project content in English. Do not add comments to code files.
+- Keep the README short and describe implemented behavior as features are added.
+- Keep only broad objectives in TASKS; only the active objective gets subtasks.
+  Select one objective at a time and keep future plans separate from current behavior.
 
-## Architecture
+## Design and implementation
 
-- Use modern C++20 and object-oriented design, following SOLID, KISS, and YAGNI.
-- Give each class a clear responsibility and prefer composition over inheritance.
-- Keep data loading, simulation logic, route planning, and presentation separate.
-- Keep the simulation independent of the future graphical interface.
-- Prefer explicit dependencies and introduce abstractions only when needed.
-- Keep `lib/` generic; railway-specific logic belongs in `inc/` and `src/`.
-
-## Development
-
-- Do not introduce custom or anonymous namespaces. Use `static` for file-local helper functions and keep standard library names qualified with `std::`.
-- Follow the existing naming and formatting style; use clear, descriptive names.
-- Prefer RAII, value semantics, and const-correctness. Make ownership explicit and keep borrowed references valid.
+- Use C++20 and focused classes; prefer composition, explicit dependencies, and
+  simple solutions. Avoid speculative abstractions and premature optimization.
+- Separate data loading, simulation, route planning, and presentation. Keep the
+  simulation independent of the GUI and railway logic in `inc/` and `src/`.
+- Use the development style in `lib/` throughout the project, including naming,
+  formatting, and class organization. Do not introduce custom or anonymous
+  namespaces; use `static` for file-local helpers and qualify standard names with `std::`.
+- Prefer RAII, value semantics, and const-correctness. Make ownership explicit and
+  keep borrowed references valid.
 - Validate external data and check lookups before dereferencing pointers.
-- Keep changes focused and preserve unrelated work.
-- Build and run relevant checks after functional changes; add focused tests as behavior grows.
-- Avoid premature optimization and speculative architecture.
+- Keep changes focused and preserve unrelated work. After functional changes,
+  build and run relevant checks; add focused tests as behavior grows.
 
 ## Git workflow
 

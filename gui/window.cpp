@@ -1,51 +1,72 @@
 #include "window.hpp"
-#include "simulation_process.hpp"
+#include "simulation_controller.hpp"
 #include <X11/Xft/Xft.h>
 #include <X11/Xutil.h>
+#include <X11/Xatom.h>
 #include <X11/keysym.h>
 #include <algorithm>
 #include <array>
 #include <cerrno>
-#include <fcntl.h>
+#include <chrono>
+#include <cmath>
 #include <iomanip>
 #include <poll.h>
 #include <sstream>
-#include <numeric>
-#include <vector>
 #include <stdexcept>
 #include <string>
+#include <unistd.h>
 
-static std::string decimal(double value)
+static std::string number(double value, int precision = 1)
 {
-    std::ostringstream text;
-    text << std::fixed << std::setprecision(1) << value;
-    return text.str();
+    std::ostringstream output;
+    output << std::fixed << std::setprecision(precision) << value;
+    return output.str();
+}
+
+static std::string clockTime(double time)
+{
+    const auto seconds = static_cast<unsigned long long>(time + 1e-6);
+    std::ostringstream output;
+    output << std::setfill('0') << std::setw(2) << seconds / 3600 % 24
+        << ':' << std::setw(2) << seconds / 60 % 60 << ':' << std::setw(2) << seconds % 60;
+    return output.str();
+}
+
+static std::string duration(double time)
+{
+    const auto seconds = static_cast<unsigned long>(std::max(0.0, std::ceil(time)));
+    std::ostringstream output;
+    output << seconds / 60 << ':' << std::setfill('0') << std::setw(2) << seconds % 60;
+    return output.str();
 }
 
 struct ApplicationWindow::Implementation
 {
-    enum Shade { Background, Panel, Border, Text, Muted, Mint, Hover, Blue, Amber, Track, Count };
+    enum Shade { Background, Surface, Border, Ink, Muted, Teal, TealLight, Blue, BlueLight,
+        Amber, AmberLight, Track, White, Count };
     Display* display = nullptr;
     ::Window handle = 0;
     GC graphics = nullptr;
     Pixmap buffer = 0;
     XftDraw* canvas = nullptr;
-    std::array<XftFont*, 4> fonts{};
+    std::array<XftFont*, 5> fonts{};
     std::array<XftColor, Count> colors{};
     int allocatedColors = 0;
     Atom closeMessage = 0;
     Atom protocols = 0;
-    int width = 1024;
-    int height = 720;
+    int width = 1240;
+    int height = 900;
     int bufferWidth = 0;
     int bufferHeight = 0;
-    bool hovered = false;
-    bool pressed = false;
-    bool pauseHovered = false;
-    bool pausePressed = false;
-    int speedPressed = 0;
-    int speedHovered = 0;
-    SimulationProcess simulation{NETWORK_PROJECT_ROOT};
+    int scroll = 0;
+    int hovered = 0;
+    int pressed = 0;
+    static constexpr int viewportTop = 181;
+    static constexpr int cardHeight = 312;
+    static constexpr int cardGap = 18;
+    static constexpr std::array<int, 5> speeds{60, 300, 1200, 2400, 6000};
+    SimulationController simulation{std::filesystem::path(NETWORK_PROJECT_ROOT) / "data.json",
+        std::filesystem::path(NETWORK_PROJECT_ROOT) / "log"};
 
     ~Implementation()
     {
@@ -58,9 +79,9 @@ struct ApplicationWindow::Implementation
         for (auto* font : fonts)
             if (font)
                 XftFontClose(display, font);
-        for (int i = 0; i < allocatedColors; ++i)
+        for (int index = 0; index < allocatedColors; ++index)
             XftColorFree(display, DefaultVisual(display, DefaultScreen(display)),
-                DefaultColormap(display, DefaultScreen(display)), &colors[i]);
+                DefaultColormap(display, DefaultScreen(display)), &colors[index]);
         if (graphics)
             XFreeGC(display, graphics);
         if (handle)
@@ -72,73 +93,62 @@ struct ApplicationWindow::Implementation
     {
         const int screen = DefaultScreen(display);
         const std::array<const char*, Count> names{
-            "#0B1220", "#141F30", "#253348", "#F1F5FA", "#94A6BE",
-            "#58DFC0", "#8CEDD6", "#79B7FF", "#F3BE70", "#2B3C52"};
-        for (const char* name : names)
+            "#F3F5F7", "#FFFFFF", "#E2E7EC", "#172C3B", "#70808D", "#147D73",
+            "#E6F3EF", "#3568AB", "#EAF0FA", "#A76C16", "#FFF4DF", "#CBD5DD", "#FFFFFF"};
+        for (const auto* name : names)
         {
             if (!XftColorAllocName(display, DefaultVisual(display, screen),
-                    DefaultColormap(display, screen), name, &colors[allocatedColors]))
+                DefaultColormap(display, screen), name, &colors[allocatedColors]))
                 throw std::runtime_error("Cannot allocate dashboard colors");
             ++allocatedColors;
         }
-        const std::array<const char*, 4> descriptions{
-            "sans:size=10", "sans:size=14", "sans:style=Bold:size=22", "sans:style=Bold:size=48"};
-        for (std::size_t i = 0; i < fonts.size(); ++i)
+        const std::array<const char*, 5> descriptions{
+            "DejaVu Sans:size=9", "DejaVu Sans:size=11", "DejaVu Sans:style=Bold:size=14",
+            "DejaVu Sans:style=Bold:size=20", "DejaVu Sans Mono:style=Bold:size=17"};
+        for (std::size_t index = 0; index < fonts.size(); ++index)
         {
-            fonts[i] = XftFontOpenName(display, screen, descriptions[i]);
-            if (!fonts[i])
+            fonts[index] = XftFontOpenName(display, screen, descriptions[index]);
+            if (!fonts[index])
                 throw std::runtime_error("Cannot load dashboard fonts");
         }
     }
 
-    bool insideButton(int x, int y) const
-    {
-        return x >= width - 180 && x < width - 36 && y >= 38 && y < 86;
-    }
-
-    bool insidePause(int x, int y) const
-    {
-        return x >= width - 340 && x < width - 196 && y >= 38 && y < 86;
-    }
-
-    int speedAt(int x, int y) const
-    {
-        const int column = (width - 104) / 3;
-        const int left = 36 + 2 * (column + 16) + 22;
-        const int buttonWidth = (column - 44) / 5;
-        if (buttonWidth <= 0 || y < 250 || y >= 282 || x < left || x >= left + buttonWidth * 5)
-            return 0;
-        return ((x - left) / buttonWidth + 1) * 60;
-    }
-
     void rectangle(int x, int y, int w, int h, Shade shade)
     {
+        if (w <= 0 || h <= 0)
+            return;
         XSetForeground(display, graphics, colors[shade].pixel);
-        XFillRectangle(display, buffer, graphics, x, y, std::max(1, w), std::max(1, h));
+        XFillRectangle(display, buffer, graphics, x, y, w, h);
     }
 
     void rounded(int x, int y, int w, int h, int radius, Shade shade)
     {
+        radius = std::min({radius, w / 2, h / 2});
+        if (radius <= 0)
+        {
+            rectangle(x, y, w, h, shade);
+            return;
+        }
         rectangle(x + radius, y, w - radius * 2, h, shade);
         rectangle(x, y + radius, w, h - radius * 2, shade);
         XSetForeground(display, graphics, colors[shade].pixel);
         for (int dx : {0, w - radius * 2})
             for (int dy : {0, h - radius * 2})
-                XFillArc(display, buffer, graphics, x + dx, y + dy,
-                    radius * 2, radius * 2, 0, 360 * 64);
+                XFillArc(display, buffer, graphics, x + dx, y + dy, radius * 2, radius * 2, 0, 360 * 64);
     }
 
-    void card(int x, int y, int w, int h)
+    void line(int x1, int y1, int x2, int y2, Shade shade, int thickness = 1)
     {
-        rounded(x, y, w, h, 16, Border);
-        rounded(x + 1, y + 1, w - 2, h - 2, 15, Panel);
+        XSetForeground(display, graphics, colors[shade].pixel);
+        XSetLineAttributes(display, graphics, thickness, LineSolid, CapRound, JoinRound);
+        XDrawLine(display, buffer, graphics, x1, y1, x2, y2);
+        XSetLineAttributes(display, graphics, 1, LineSolid, CapButt, JoinMiter);
     }
 
-    int textWidth(const std::string& value, int font)
+    int textWidth(const std::string& value, int font) const
     {
         XGlyphInfo extents;
-        XftTextExtentsUtf8(display, fonts[font],
-            reinterpret_cast<const FcChar8*>(value.data()), value.size(), &extents);
+        XftTextExtentsUtf8(display, fonts[font], reinterpret_cast<const FcChar8*>(value.data()), value.size(), &extents);
         return extents.xOff;
     }
 
@@ -146,103 +156,266 @@ struct ApplicationWindow::Implementation
     {
         if (maxWidth > 0 && textWidth(value, font) > maxWidth)
         {
-            while (!value.empty() && textWidth(value + "...", font) > maxWidth)
+            while (!value.empty() && textWidth(value + "…", font) > maxWidth)
             {
                 std::size_t last = value.size() - 1;
                 while (last > 0 && (static_cast<unsigned char>(value[last]) & 0xc0) == 0x80)
                     --last;
                 value.erase(last);
             }
-            value += "...";
+            value += "…";
         }
         XftDrawStringUtf8(canvas, &colors[shade], fonts[font], x, y,
             reinterpret_cast<const FcChar8*>(value.data()), value.size());
     }
 
-    void drawStation(int center, int railY, const std::string& name)
+    void centered(const std::string& value, int x, int y, int font, Shade shade, int maxWidth = 0)
     {
-        const int labelWidth = std::min(180, 2 * std::min(center - 58, width - 58 - center));
-        const int nameWidth = std::min(textWidth(name, 1), labelWidth);
-        text(name, center - nameWidth / 2, railY - 82, 1, Text, labelWidth);
-        rectangle(center - 7, railY - 30, 14, 28, Border);
-        rectangle(center - 5, railY - 30, 10, 28, Muted);
-        rectangle(center - 32, railY - 5, 64, 5, Border);
-        rectangle(center - 32, railY - 2, 64, 2, Amber);
-        rectangle(center - 24, railY - 53, 48, 23, Border);
-        XPoint roof[]{
-            {static_cast<short>(center - 30), static_cast<short>(railY - 53)},
-            {static_cast<short>(center), static_cast<short>(railY - 68)},
-            {static_cast<short>(center + 30), static_cast<short>(railY - 53)}
-        };
-        XSetForeground(display, graphics, colors[Blue].pixel);
-        XFillPolygon(display, buffer, graphics, roof, 3, Convex, CoordModeOrigin);
-        rectangle(center - 5, railY - 46, 10, 16, Background);
-        rectangle(center - 18, railY - 46, 8, 8, Amber);
-        rectangle(center + 10, railY - 46, 8, 8, Amber);
-        rounded(center - 32, railY - 30, 64, 4, 2, Muted);
+        text(value, x - std::min(textWidth(value, font), maxWidth > 0 ? maxWidth : textWidth(value, font)) / 2,
+            y, font, shade, maxWidth);
     }
 
-    void drawTrain(int center, int railY)
+    void circle(int x, int y, int radius, Shade shade)
     {
-        const int x = center - 52;
-        rounded(x, railY - 27, 45, 20, 4, Text);
-        rectangle(x + 4, railY - 13, 38, 4, Blue);
-        rectangle(x + 45, railY - 20, 5, 11, Muted);
-        rectangle(x + 46, railY - 18, 3, 7, Background);
+        XSetForeground(display, graphics, colors[shade].pixel);
+        XFillArc(display, buffer, graphics, x - radius, y - radius, radius * 2, radius * 2, 0, 360 * 64);
+    }
 
-        XPoint cab[]{
-            {static_cast<short>(x + 50), static_cast<short>(railY - 27)},
-            {static_cast<short>(x + 78), static_cast<short>(railY - 27)},
-            {static_cast<short>(x + 88), static_cast<short>(railY - 22)},
-            {static_cast<short>(x + 104), static_cast<short>(railY - 11)},
-            {static_cast<short>(x + 101), static_cast<short>(railY - 7)},
-            {static_cast<short>(x + 50), static_cast<short>(railY - 7)}
-        };
-        XSetForeground(display, graphics, colors[Mint].pixel);
-        XFillPolygon(display, buffer, graphics, cab, 6, Convex, CoordModeOrigin);
-        rectangle(x + 52, railY - 13, 42, 4, Blue);
-        XPoint windshield[]{
-            {static_cast<short>(x + 77), static_cast<short>(railY - 24)},
-            {static_cast<short>(x + 85), static_cast<short>(railY - 20)},
-            {static_cast<short>(x + 91), static_cast<short>(railY - 16)},
-            {static_cast<short>(x + 79), static_cast<short>(railY - 16)}
-        };
-        XSetForeground(display, graphics, colors[Background].pixel);
-        XFillPolygon(display, buffer, graphics, windshield, 4, Convex, CoordModeOrigin);
-        for (int window : {6, 17, 28, 56, 67})
-            rounded(x + window, railY - 23, 7, 7, 2, Background);
-        rectangle(x + 98, railY - 12, 4, 2, Amber);
+    void trainIcon(int center, int rail, Shade shade)
+    {
+        const int x = center - 28;
+        rounded(x, rail - 23, 42, 18, 5, shade);
+        XPoint nose[]{
+            {static_cast<short>(x + 35), static_cast<short>(rail - 23)},
+            {static_cast<short>(x + 46), static_cast<short>(rail - 23)},
+            {static_cast<short>(x + 57), static_cast<short>(rail - 9)},
+            {static_cast<short>(x + 53), static_cast<short>(rail - 5)},
+            {static_cast<short>(x + 35), static_cast<short>(rail - 5)}};
+        XSetForeground(display, graphics, colors[shade].pixel);
+        XFillPolygon(display, buffer, graphics, nose, 5, Convex, CoordModeOrigin);
+        for (int offset : {7, 17, 27})
+            rounded(x + offset, rail - 19, 6, 6, 1, White);
+        line(x + 40, rail - 19, x + 45, rail - 14, White, 3);
+        line(x + 16, rail - 25, x + 22, rail - 30, Muted);
+        line(x + 22, rail - 30, x + 27, rail - 25, Muted);
+        line(x + 18, rail - 31, x + 28, rail - 31, Muted);
+        for (int offset : {10, 32, 46})
+            circle(x + offset, rail - 4, 3, Ink);
+    }
 
-        XSetForeground(display, graphics, colors[Muted].pixel);
-        XDrawLine(display, buffer, graphics, x + 57, railY - 28, x + 65, railY - 34);
-        XDrawLine(display, buffer, graphics, x + 65, railY - 34, x + 58, railY - 38);
-        rectangle(x + 53, railY - 39, 16, 2, Muted);
-        for (int bogie : {8, 31, 55, 81})
+    void stationIcon(int x, int rail, bool passed)
+    {
+        const Shade color = passed ? Teal : Muted;
+        circle(x, rail, 5, passed ? Teal : Track);
+        circle(x, rail, 2, White);
+        rectangle(x - 9, rail + 11, 18, 12, color);
+        XPoint roof[]{
+            {static_cast<short>(x - 12), static_cast<short>(rail + 11)},
+            {static_cast<short>(x), static_cast<short>(rail + 4)},
+            {static_cast<short>(x + 12), static_cast<short>(rail + 11)}};
+        XSetForeground(display, graphics, colors[color].pixel);
+        XFillPolygon(display, buffer, graphics, roof, 3, Convex, CoordModeOrigin);
+        rectangle(x - 2, rail + 16, 4, 7, White);
+        rectangle(x - 7, rail + 15, 3, 3, White);
+        rectangle(x + 4, rail + 15, 3, 3, White);
+    }
+
+    int controlAt(int x, int y) const
+    {
+        if (y >= 29 && y < 70 && x >= width - 166 && x < width - 26)
+            return 1;
+        if (y >= 35 && y < 70 && x >= 246 && x < 246 + 5 * 63)
         {
-            rounded(x + bogie - 2, railY - 8, 14, 5, 2, Track);
-            for (int wheel : {0, 7})
-            {
-                XSetForeground(display, graphics, colors[Background].pixel);
-                XFillArc(display, buffer, graphics, x + bogie + wheel, railY - 6, 6, 6, 0, 360 * 64);
-                XSetForeground(display, graphics, colors[Muted].pixel);
-                XFillArc(display, buffer, graphics, x + bogie + wheel + 2, railY - 4, 2, 2, 0, 360 * 64);
-            }
+            const int index = (x - 246) / 63;
+            if ((x - 246) % 63 < 58)
+                return index + 2;
         }
+        return 0;
+    }
+
+    int viewportHeight() const { return std::max(1, height - viewportTop - 37); }
+    int contentHeight() const
+    {
+        return static_cast<int>(simulation.getTrains().size()) * (cardHeight + cardGap);
+    }
+    int maximumScroll() const { return std::max(0, contentHeight() - viewportHeight()); }
+
+    void activate(int control)
+    {
+        if (control == 1)
+            simulation.togglePlayback();
+        else if (control >= 2 && control < 7)
+            simulation.setTimeScale(speeds[control - 2]);
+    }
+
+    void drawHeader()
+    {
+        rectangle(0, 0, width, 96, Surface);
+        rectangle(0, 95, width, 1, Border);
+        rounded(26, 27, 42, 42, 10, TealLight);
+        rounded(36, 34, 22, 24, 6, Teal);
+        rectangle(40, 38, 14, 8, White);
+        circle(42, 53, 2, White);
+        circle(52, 53, 2, White);
+        line(38, 63, 42, 59, Teal, 2);
+        line(55, 63, 51, 59, Teal, 2);
+        text("RAILWAY", 80, 43, 2, Ink);
+        text("Live services", 80, 64, 0, Muted);
+        text("SIMULATION SPEED", 246, 24, 0, Muted);
+        for (std::size_t index = 0; index < speeds.size(); ++index)
+        {
+            const bool selected = simulation.getTimeScale() == speeds[index];
+            const int x = 246 + static_cast<int>(index) * 63;
+            rounded(x, 35, 58, 35, 7, selected ? Teal : (hovered == static_cast<int>(index) + 2 ? Border : Background));
+            centered(std::to_string(speeds[index]) + "×", x + 29, 57, 0, selected ? White : Ink);
+        }
+        const int clockX = width - 332;
+        text("DAY " + std::to_string(static_cast<unsigned long>(simulation.getTime()) / 86400 + 1), clockX, 31, 0, Muted);
+        text(clockTime(simulation.getTime()), clockX, 60, 4, Ink);
+        const bool available = simulation.getServiceCount() != 0;
+        rounded(width - 166, 29, 140, 41, 8, available ? (simulation.isRunning() ? Ink : Teal) : Track);
+        if (hovered == 1 && available)
+            rounded(width - 166, 29, 140, 41, 8, simulation.isRunning() ? Blue : Teal);
+        const int iconX = width - 143;
+        if (simulation.isRunning())
+        {
+            rectangle(iconX, 42, 4, 15, White);
+            rectangle(iconX + 8, 42, 4, 15, White);
+        }
+        else
+        {
+            XPoint play[]{
+                {static_cast<short>(iconX), 41}, {static_cast<short>(iconX), 58},
+                {static_cast<short>(iconX + 13), 50}};
+            XSetForeground(display, graphics, colors[White].pixel);
+            XFillPolygon(display, buffer, graphics, play, 3, Convex, CoordModeOrigin);
+        }
+        text(simulation.isRunning() ? "Pause" : (simulation.hasStarted() ? "Resume" : "Start"), width - 116, 55, 1, White);
+    }
+
+    void drawSection()
+    {
+        text("On the network", 30, 134, 3, Ink);
+        text("Journeys appear at departure and leave the board on arrival.", 31, 158, 1, Muted, width - 290);
+        const auto count = simulation.getTrains().size();
+        rounded(width - 165, 112, 134, 35, 17, count ? TealLight : Border);
+        circle(width - 145, 129, 4, count ? Teal : Muted);
+        text(std::to_string(count) + (count == 1 ? " active train" : " active trains"), width - 133, 135, 1, count ? Teal : Muted);
+    }
+
+    void metric(int x, int y, int w, const std::string& label, const std::string& value, const std::string& detail)
+    {
+        text(label, x, y, 0, Muted, w);
+        text(value, x, y + 29, 2, Ink, w);
+        text(detail, x, y + 50, 0, Muted, w);
+    }
+
+    void drawCard(const TrainDashboard& train, int y)
+    {
+        const int x = 30;
+        const int w = width - 74;
+        rounded(x, y + 2, w, cardHeight, 12, Border);
+        rounded(x, y, w, cardHeight, 12, Surface);
+        rectangle(x + 1, y + 22, 3, cardHeight - 44, train.state == TrainState::Waiting ? Amber : Teal);
+        text(train.name, x + 24, y + 32, 2, Ink, w - 250);
+        text(train.origin + " → " + train.destination + "   ·   Service " + std::to_string(train.id),
+            x + 24, y + 55, 1, Muted, w - 250);
+        std::string state;
+        Shade badge = BlueLight;
+        Shade stateColor = Blue;
+        switch (train.state)
+        {
+            case TrainState::Waiting:
+                state = "Station stop · " + duration(train.pauseRemaining);
+                badge = AmberLight;
+                stateColor = Amber;
+                break;
+            case TrainState::Accelerating: state = "Accelerating"; break;
+            case TrainState::Cruising: state = "Cruising"; badge = TealLight; stateColor = Teal; break;
+            case TrainState::Braking: state = "Braking"; badge = AmberLight; stateColor = Amber; break;
+            default: state = "Waiting"; break;
+        }
+        const int badgeWidth = std::max(108, textWidth(state, 0) + 28);
+        rounded(x + w - badgeWidth - 24, y + 20, badgeWidth, 28, 14, badge);
+        centered(state, x + w - badgeWidth / 2 - 24, y + 39, 0, stateColor);
+        const int column = (w - 48) / 4;
+        metric(x + 24, y + 85, column - 12, "SPEED", number(train.speed) + " m/s",
+            number(train.speed * 3.6, 0) + " km/h · limit " + number(train.segmentLimit) + " m/s");
+        metric(x + 24 + column, y + 85, column - 12,
+            train.station.empty() ? "CURRENT LEG" : "AT THE STATION",
+            train.station.empty() ? train.legOrigin + " → " + train.legDestination : train.station,
+            train.station.empty() ? "Moving towards " + train.legDestination : "Continuing to " + train.destination);
+        metric(x + 24 + column * 2, y + 85, column - 12, "SEGMENT POSITION",
+            number(train.segmentPosition / 1000.0) + " / " + number(train.segmentLength / 1000.0, 0) + " km",
+            "Departed " + clockTime(train.departure));
+        const double progress = train.routePosition / train.routeLength;
+        metric(x + 24 + column * 3, y + 85, column - 12, "JOURNEY PROGRESS",
+            number(progress * 100.0, 0) + "%",
+            number(train.routePosition / 1000.0, 0) + " / " + number(train.routeLength / 1000.0, 0) + " km");
+        const int railY = y + 205;
+        const int left = x + 53;
+        const int right = x + w - 53;
+        line(left, railY, right, railY, Track, 4);
+        const int trainX = left + static_cast<int>((right - left) * std::clamp(progress, 0.0, 1.0));
+        line(left, railY, trainX, railY, Teal, 4);
+        for (std::size_t index = 0; index < train.stations.size(); ++index)
+        {
+            const int center = left + static_cast<int>((right - left) * train.stationDistances[index] / train.routeLength);
+            const bool passed = train.routePosition + 0.01 >= train.stationDistances[index];
+            stationIcon(center, railY, passed);
+            int spacing = right - left;
+            if (index > 0)
+                spacing = std::min(spacing, static_cast<int>((right - left)
+                    * (train.stationDistances[index] - train.stationDistances[index - 1]) / train.routeLength));
+            if (index + 1 < train.stations.size())
+                spacing = std::min(spacing, static_cast<int>((right - left)
+                    * (train.stationDistances[index + 1] - train.stationDistances[index]) / train.routeLength));
+            centered(train.stations[index], center, railY + 43, 0, passed ? Ink : Muted, std::max(18, spacing - 12));
+        }
+        trainIcon(trainX, railY, train.state == TrainState::Waiting ? Amber : Teal);
+        line(x + 24, y + 265, x + w - 24, y + 265, Border);
+        const auto& parameters = train.parameters;
+        const std::string dimensions = "Mass " + number(parameters.mass, 0) + " kg  ·  Length "
+            + number(parameters.length, 0) + " m  ·  Max " + number(parameters.maxSpeed)
+            + " m/s  ·  Elapsed " + clockTime(train.elapsed);
+        const std::string forces = "Engine " + number(parameters.engineForce, 0) + " N  ·  Brake "
+            + number(parameters.brakeForce, 0) + " N  ·  Resistance " + number(parameters.friction, 3) + " N·s/m";
+        text(dimensions, x + 24, y + 282, 0, Muted, w - 48);
+        text(forces, x + 24, y + 300, 0, Muted, w - 48);
+    }
+
+    void drawEmpty()
+    {
+        const int center = width / 2;
+        const int y = viewportTop + std::max(80, (viewportHeight() - 235) / 2);
+        rounded(center - 105, y - 28, 210, 105, 18, TealLight);
+        line(center - 75, y + 39, center + 75, y + 39, Track, 3);
+        stationIcon(center - 70, y + 39, true);
+        stationIcon(center + 70, y + 39, false);
+        trainIcon(center, y + 39, Teal);
+        centered(!simulation.hasStarted() ? "Ready for departure" : "All quiet on the network", center, y + 119, 3, Ink);
+        centered(!simulation.hasStarted() ? "Start the simulation to follow today's journeys."
+            : "Scheduled journeys will appear when they depart.", center, y + 151, 1, Muted, width - 100);
+        if (simulation.getUpcoming())
+        {
+            const auto& next = *simulation.getUpcoming();
+            centered("NEXT DEPARTURE  ·  " + clockTime(next.time), center, y + 197, 0, Teal);
+            centered(next.name + "   ·   " + next.origin + " → " + next.destination,
+                center, y + 222, 1, Ink, width - 120);
+        }
+        else
+            centered("No services in this scenario", center, y + 198, 1, Muted);
     }
 
     void draw()
     {
-        if (width <= 0 || height <= 0)
-            return;
-        if (!buffer || width != bufferWidth || height != bufferHeight)
+        if (!buffer || bufferWidth != width || bufferHeight != height)
         {
             if (canvas)
                 XftDrawDestroy(canvas);
-            canvas = nullptr;
             if (buffer)
                 XFreePixmap(display, buffer);
-            buffer = XCreatePixmap(display, handle, width, height,
-                DefaultDepth(display, DefaultScreen(display)));
+            buffer = XCreatePixmap(display, handle, width, height, DefaultDepth(display, DefaultScreen(display)));
             canvas = XftDrawCreate(display, buffer, DefaultVisual(display, DefaultScreen(display)),
                 DefaultColormap(display, DefaultScreen(display)));
             if (!canvas)
@@ -250,129 +423,45 @@ struct ApplicationWindow::Implementation
             bufferWidth = width;
             bufferHeight = height;
         }
+        XSetClipMask(display, graphics, None);
+        XftDrawSetClip(canvas, nullptr);
         rectangle(0, 0, width, height, Background);
-        const auto& telemetry = simulation.getTelemetry();
-        text("Railway Network", 36, 62, 2, Text);
-        text("LIVE TRAIN MONITOR", 38, 93, 0, Muted);
-        rounded(width - 180, 38, 144, 48, 12, hovered || pressed ? Hover : Mint);
-        const std::string button = simulation.isRunning() ? "Stop" : "Start";
-        text(button, width - 108 - textWidth(button, 1) / 2, 69, 1, Background);
-
-        const bool canPause = simulation.isRunning() && telemetry.has_value();
-        rounded(width - 340, 38, 144, 48, 12,
-            canPause && (pauseHovered || pausePressed) ? Border : Panel);
-        const std::string pauseLabel = simulation.isPaused() ? "Resume" : "Pause";
-        text(pauseLabel, width - 268 - textWidth(pauseLabel, 1) / 2, 69, 1,
-            canPause ? (simulation.isPaused() ? Amber : Text) : Muted);
-
-        const int gap = 16;
-        const int column = (width - 72 - gap * 2) / 3;
-        const int stateX = 36 + column + gap;
-        const int clockX = stateX + column + gap;
-        card(36, 130, column, 192);
-        card(stateX, 130, column, 192);
-        card(clockX, 130, width - 36 - clockX, 192);
-        text("SPEED", 58, 163, 0, Muted);
-        text(telemetry ? decimal(telemetry->speed) : "--", 56, 242,
-            column < 250 ? 2 : 3, Mint, column - 40);
-        text("km/h", 58, 290, 1, Muted);
-
-        const std::string state = telemetry ? telemetry->state : "Ready";
-        const Shade stateShade = state == "Braking" ? Amber : (state == "Cruising" ? Blue : Mint);
-        text("TRAIN STATE", stateX + 22, 163, 0, Muted);
-        text(state, stateX + 22, 227, 1, stateShade, column - 44);
-        if (telemetry && telemetry->state == "Waiting")
-            text(telemetry->waitingSeconds == 0 ? "Passenger stop complete"
-                : "Boarding: " + std::to_string(telemetry->waitingSeconds / 60) + "m "
-                    + std::to_string(telemetry->waitingSeconds % 60) + "s",
-                stateX + 22, 260, 0, Amber, column - 44);
-        text(telemetry ? telemetry->type + " / Train " + telemetry->train : "Awaiting departure",
-            stateX + 22, 290, 0, Muted, column - 44);
-
-        text("SIMULATED TIME", clockX + 22, 163, 0, Muted);
-        text(telemetry ? telemetry->time : "0h0m0s", clockX + 22, 227, 1, Text, column - 44);
-        const int buttonWidth = (column - 44) / 5;
-        for (int hours = 1; hours <= 5; ++hours)
+        drawHeader();
+        drawSection();
+        scroll = std::clamp(scroll, 0, maximumScroll());
+        XRectangle clip{0, static_cast<short>(viewportTop), static_cast<unsigned short>(width),
+            static_cast<unsigned short>(viewportHeight())};
+        XSetClipRectangles(display, graphics, 0, 0, &clip, 1, Unsorted);
+        XftDrawSetClipRectangles(canvas, 0, 0, &clip, 1);
+        if (simulation.getTrains().empty())
+            drawEmpty();
+        else
         {
-            const int x = clockX + 22 + (hours - 1) * buttonWidth;
-            const bool selected = simulation.getTimeScale() == hours * 60;
-            rounded(x, 250, buttonWidth - 3, 32, 6,
-                selected ? Mint : (speedHovered == hours * 60 ? Border : Track));
-            const std::string label = std::to_string(hours) + "h";
-            text(label, x + (buttonWidth - 3 - textWidth(label, 0)) / 2, 272,
-                0, selected ? Background : Text);
-        }
-        text("1 min = " + std::to_string(simulation.getTimeScale() / 60) + "h / "
-            + std::to_string(simulation.getTimeScale()) + "x", clockX + 22, 307, 0,
-            simulation.isPaused() ? Amber : Blue, column - 44);
-
-        const int routeHeight = std::max(230, height - 450);
-        card(36, 342, width - 72, routeHeight);
-        text("ROUTE", 58, 375, 0, Muted);
-        static const std::vector<std::string> defaultStations{"Paris", "Lyon", "Marseille"};
-        static const std::vector<double> defaultLengths{427.0, 309.0};
-        const auto& stations = telemetry && !telemetry->stations.empty()
-            ? telemetry->stations : defaultStations;
-        const auto& lengths = telemetry && !telemetry->segmentLengths.empty()
-            ? telemetry->segmentLengths : defaultLengths;
-        const double totalLength = std::accumulate(lengths.begin(), lengths.end(), 0.0);
-        double totalPosition = 0.0;
-        if (telemetry)
-        {
-            for (std::size_t index = 0; index < lengths.size(); ++index)
+            int y = viewportTop - scroll;
+            for (const auto& train : simulation.getTrains())
             {
-                if (stations[index] == telemetry->departure && stations[index + 1] == telemetry->destination)
-                {
-                    totalPosition += telemetry->position;
-                    break;
-                }
-                totalPosition += lengths[index];
+                if (y + cardHeight >= viewportTop && y < height - 37)
+                    drawCard(train, y);
+                y += cardHeight + cardGap;
             }
-            text(telemetry->departure + " -> " + telemetry->destination + "  /  "
-                + decimal(telemetry->position) + " of " + decimal(telemetry->length) + " km",
-                58, 399, 0, Muted, width - 116);
         }
-        const int trackStart = 140;
-        const int trackEnd = width - 140;
-        const int trackWidth = trackEnd - trackStart;
-        const int railY = 513;
-        const double ratio = std::clamp(totalPosition / totalLength, 0.0, 1.0);
-        double stationDistance = 0.0;
-        for (std::size_t index = 0; index < stations.size(); ++index)
+        XSetClipMask(display, graphics, None);
+        XftDrawSetClip(canvas, nullptr);
+        if (maximumScroll() > 0)
         {
-            drawStation(trackStart + static_cast<int>(trackWidth * stationDistance / totalLength),
-                railY, stations[index]);
-            if (index < lengths.size())
-                stationDistance += lengths[index];
+            const int thumbHeight = std::max(32, viewportHeight() * viewportHeight() / contentHeight());
+            const int thumbY = viewportTop + scroll * (viewportHeight() - thumbHeight) / maximumScroll();
+            rounded(width - 24, viewportTop, 6, viewportHeight(), 3, Border);
+            rounded(width - 24, thumbY, 6, thumbHeight, 3, Track);
         }
-        for (int sleeper = trackStart; sleeper <= trackEnd; sleeper += 18)
-            rectangle(sleeper, railY - 2, 4, 13, Border);
-        rectangle(trackStart, railY, trackWidth, 2, Track);
-        rectangle(trackStart, railY + 7, trackWidth, 2, Track);
-        const int progress = static_cast<int>(trackWidth * ratio);
-        if (progress > 0)
-            rectangle(trackStart, railY + 7, progress, 2, Mint);
-        drawTrain(trackStart + progress, railY);
-        text(decimal(totalPosition) + " / " + decimal(totalLength) + " km",
-            58, 559, 1, Text);
-        const std::string percent = decimal(ratio * 100.0) + "%";
-        text(percent, width - 58 - textWidth(percent, 1), 559, 1, Mint);
-        const std::string legs = "Completed legs: " + (telemetry ? std::to_string(telemetry->legs) : "0");
-        text(legs, width - 58 - textWidth(legs, 0), 375, 0, Muted);
-
-        const int footer = 342 + routeHeight;
-        text(simulation.getStatus(), 38, footer + 36, 0, simulation.isPaused() ? Amber : (simulation.isRunning() ? Mint : Muted), width - 76);
-        text("Enter: start / stop     Space: pause / resume     1-5: speed     Esc: close", 38, footer + 65, 0, Muted);
+        rectangle(0, height - 28, width, 28, Background);
+        circle(34, height - 14, 3, simulation.isRunning() ? Teal : Muted);
+        text(simulation.isRunning() ? "Live" : (simulation.hasStarted() ? "Paused" : "Ready"), 46, height - 9, 0, Muted);
+        text(std::to_string(simulation.getServiceCount()) + " daily services", 119, height - 9, 0, Muted);
+        const std::string shortcuts = "Space: start / pause    ·    1–5: speed    ·    Scroll: more trains";
+        text(shortcuts, width - textWidth(shortcuts, 0) - 30, height - 9, 0, Muted);
         XCopyArea(display, buffer, handle, graphics, 0, 0, width, height, 0, 0);
         XFlush(display);
-    }
-
-    void start()
-    {
-        if (simulation.isRunning())
-            simulation.stop();
-        else
-            simulation.start();
     }
 };
 
@@ -381,29 +470,23 @@ ApplicationWindow::ApplicationWindow() : implementation(std::make_unique<Impleme
     auto& state = *implementation;
     state.display = XOpenDisplay(nullptr);
     if (!state.display)
-        throw std::runtime_error("Cannot open display. Run network_window in an X11 or XWayland desktop session.");
-    const int connection = ConnectionNumber(state.display);
-    const int flags = fcntl(connection, F_GETFD);
-    if (flags < 0 || fcntl(connection, F_SETFD, flags | FD_CLOEXEC) < 0)
-        throw std::runtime_error("Cannot configure display connection");
-    state.initializeGraphics();
+        throw std::runtime_error("Cannot open an X11 display");
     const int screen = DefaultScreen(state.display);
     state.handle = XCreateSimpleWindow(state.display, RootWindow(state.display, screen),
-        0, 0, state.width, state.height, 0, state.colors[Implementation::Background].pixel,
-        state.colors[Implementation::Background].pixel);
+        60, 40, state.width, state.height, 0, 0, WhitePixel(state.display, screen));
     state.graphics = XCreateGC(state.display, state.handle, 0, nullptr);
-    if (!state.graphics)
-        throw std::runtime_error("Cannot initialize dashboard graphics");
-    XSetGraphicsExposures(state.display, state.graphics, False);
-    XStoreName(state.display, state.handle, "Railway Network");
+    state.initializeGraphics();
+    XStoreName(state.display, state.handle, "Railway Network | Live services");
+    const auto pid = static_cast<unsigned long>(getpid());
+    XChangeProperty(state.display, state.handle, XInternAtom(state.display, "_NET_WM_PID", False),
+        XA_CARDINAL, 32, PropModeReplace, reinterpret_cast<const unsigned char*>(&pid), 1);
     XSizeHints hints{};
     hints.flags = PMinSize;
-    hints.min_width = 760;
-    hints.min_height = 660;
+    hints.min_width = 1000;
+    hints.min_height = 640;
     XSetWMNormalHints(state.display, state.handle, &hints);
-    XSelectInput(state.display, state.handle, StructureNotifyMask | ExposureMask
-        | KeyPressMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask
-        | LeaveWindowMask | FocusChangeMask);
+    XSelectInput(state.display, state.handle, StructureNotifyMask | ExposureMask | KeyPressMask
+        | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | LeaveWindowMask | FocusChangeMask);
     state.closeMessage = XInternAtom(state.display, "WM_DELETE_WINDOW", False);
     state.protocols = XInternAtom(state.display, "WM_PROTOCOLS", False);
     XSetWMProtocols(state.display, state.handle, &state.closeMessage, 1);
@@ -416,92 +499,86 @@ ApplicationWindow::~ApplicationWindow() = default;
 void ApplicationWindow::run()
 {
     auto& state = *implementation;
+    auto previous = std::chrono::steady_clock::now();
+    bool dirty = true;
     while (true)
     {
-        if (state.simulation.update())
-            state.draw();
-        if (XPending(state.display) == 0)
+        const auto now = std::chrono::steady_clock::now();
+        dirty = state.simulation.advance(std::chrono::duration<double>(now - previous).count()) || dirty;
+        previous = now;
+        while (XPending(state.display))
         {
-            pollfd connection{ConnectionNumber(state.display), POLLIN, 0};
-            const int result = poll(&connection, 1, state.simulation.needsUpdate() ? 50 : -1);
-            if (result < 0 && errno != EINTR)
-                throw std::runtime_error("Cannot wait for window events");
-            if (connection.revents & (POLLERR | POLLHUP | POLLNVAL))
-                throw std::runtime_error("Display connection closed");
-            continue;
-        }
-        XEvent event;
-        XNextEvent(state.display, &event);
-        if (event.type == ClientMessage && event.xclient.message_type == state.protocols
-            && event.xclient.format == 32
-            && static_cast<Atom>(event.xclient.data.l[0]) == state.closeMessage)
-            return;
-        if (event.type == DestroyNotify && event.xdestroywindow.window == state.handle)
-        {
-            state.handle = 0;
-            return;
-        }
-        if (event.type == Expose && event.xexpose.count > 0)
-            continue;
-        if (event.type == KeyPress)
-        {
-            const KeySym key = XLookupKeysym(&event.xkey, 0);
-            if (key == XK_Escape)
+            XEvent event;
+            XNextEvent(state.display, &event);
+            if (event.type == ClientMessage && event.xclient.message_type == state.protocols
+                && event.xclient.format == 32 && static_cast<Atom>(event.xclient.data.l[0]) == state.closeMessage)
                 return;
-            if (key == XK_Return || key == XK_KP_Enter)
-                state.start();
-            else if (key == XK_space)
-                state.simulation.togglePause();
-            else if (key >= XK_1 && key <= XK_5)
-                state.simulation.setTimeScale(static_cast<int>(key - XK_0) * 60);
-            else if (key >= XK_KP_1 && key <= XK_KP_5)
-                state.simulation.setTimeScale(static_cast<int>(key - XK_KP_0) * 60);
+            if (event.type == DestroyNotify && event.xdestroywindow.window == state.handle)
+            {
+                state.handle = 0;
+                return;
+            }
+            if (event.type == ConfigureNotify)
+            {
+                state.width = std::max(1, event.xconfigure.width);
+                state.height = std::max(1, event.xconfigure.height);
+            }
+            else if (event.type == KeyPress)
+            {
+                const auto key = XLookupKeysym(&event.xkey, 0);
+                if (key == XK_Escape)
+                    return;
+                if (key == XK_space || key == XK_Return || key == XK_KP_Enter)
+                    state.simulation.togglePlayback();
+                else if (key >= XK_1 && key <= XK_5)
+                    state.simulation.setTimeScale(Implementation::speeds[key - XK_1]);
+                else if (key == XK_Page_Down || key == XK_Down)
+                    state.scroll += state.viewportHeight() / 2;
+                else if (key == XK_Page_Up || key == XK_Up)
+                    state.scroll -= state.viewportHeight() / 2;
+                else if (key == XK_Home)
+                    state.scroll = 0;
+                else if (key == XK_End)
+                    state.scroll = state.maximumScroll();
+            }
+            else if (event.type == ButtonPress)
+            {
+                if (event.xbutton.button == Button4)
+                    state.scroll -= 82;
+                else if (event.xbutton.button == Button5)
+                    state.scroll += 82;
+                else if (event.xbutton.button == Button1)
+                    state.pressed = state.controlAt(event.xbutton.x, event.xbutton.y);
+            }
+            else if (event.type == ButtonRelease && event.xbutton.button == Button1)
+            {
+                if (state.pressed != 0 && state.pressed == state.controlAt(event.xbutton.x, event.xbutton.y))
+                    state.activate(state.pressed);
+                state.pressed = 0;
+            }
+            else if (event.type == MotionNotify)
+            {
+                const int hovered = state.controlAt(event.xmotion.x, event.xmotion.y);
+                if (hovered == state.hovered)
+                    continue;
+                state.hovered = hovered;
+            }
+            else if (event.type == LeaveNotify || event.type == FocusOut)
+            {
+                state.hovered = 0;
+                state.pressed = 0;
+            }
+            dirty = true;
         }
-        else if (event.type == ConfigureNotify)
+        if (dirty)
         {
-            if (state.width == event.xconfigure.width && state.height == event.xconfigure.height)
-                continue;
-            state.width = event.xconfigure.width;
-            state.height = event.xconfigure.height;
+            state.draw();
+            dirty = false;
         }
-        else if (event.type == MotionNotify)
-        {
-            const bool hovered = state.insideButton(event.xmotion.x, event.xmotion.y);
-            const bool pauseHovered = state.insidePause(event.xmotion.x, event.xmotion.y);
-            const int speedHovered = state.speedAt(event.xmotion.x, event.xmotion.y);
-            if (hovered == state.hovered && pauseHovered == state.pauseHovered && speedHovered == state.speedHovered)
-                continue;
-            state.hovered = hovered;
-            state.pauseHovered = pauseHovered;
-            state.speedHovered = speedHovered;
-        }
-        else if (event.type == LeaveNotify || event.type == FocusOut)
-        {
-            state.hovered = false;
-            state.pressed = false;
-            state.pauseHovered = false;
-            state.speedHovered = 0;
-            state.speedPressed = 0;
-            state.pausePressed = false;
-        }
-        else if (event.type == ButtonPress && event.xbutton.button == Button1)
-        {
-            state.pressed = state.insideButton(event.xbutton.x, event.xbutton.y);
-            state.pausePressed = state.insidePause(event.xbutton.x, event.xbutton.y);
-            state.speedPressed = state.speedAt(event.xbutton.x, event.xbutton.y);
-        }
-        else if (event.type == ButtonRelease && event.xbutton.button == Button1)
-        {
-            if (state.pressed && state.insideButton(event.xbutton.x, event.xbutton.y))
-                state.start();
-            if (state.pausePressed && state.insidePause(event.xbutton.x, event.xbutton.y))
-                state.simulation.togglePause();
-            if (state.speedPressed != 0 && state.speedPressed == state.speedAt(event.xbutton.x, event.xbutton.y))
-                state.simulation.setTimeScale(state.speedPressed);
-            state.speedPressed = 0;
-            state.pausePressed = false;
-            state.pressed = false;
-        }
-        state.draw();
+        pollfd connection{ConnectionNumber(state.display), POLLIN, 0};
+        if (poll(&connection, 1, state.simulation.isRunning() ? 16 : -1) < 0 && errno != EINTR)
+            throw std::runtime_error("Cannot wait for window events");
+        if (connection.revents & (POLLERR | POLLHUP | POLLNVAL))
+            throw std::runtime_error("Display connection closed");
     }
 }

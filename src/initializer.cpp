@@ -1,180 +1,143 @@
 #include "initializer.hpp"
-#include <functional>
+#include "station.hpp"
+#include "segment.hpp"
+#include "train.hpp"
+#include "factory.hpp"
+#include "loader.hpp"
+#include <algorithm>
+#include "registry.hpp"
+#include <cctype>
+#include <cmath>
 #include <stdexcept>
+#include <unordered_set>
 
-void Initializer::initialize()
+static const Field& requiredField(const FieldMap& data, const std::string& key)
 {
-    Logger::instantiate();
-    Logger::instance()->setLevel(Logger::Level::LOG_LEVEL);
+    const auto found = data.find(key);
+    if (found == data.end())
+        throw std::invalid_argument("Missing field: " + key);
+    return found->second;
+}
 
+static std::string readName(const FieldMap& data, const std::string& key)
+{
+    const auto& field = requiredField(data, key);
+    if (!field.isString())
+        throw std::invalid_argument("Expected a string for " + key);
+    const std::string value = field;
+    if (value.empty() || std::isspace(static_cast<unsigned char>(value.front()))
+        || std::isspace(static_cast<unsigned char>(value.back()))
+        || std::any_of(value.begin(), value.end(), [](unsigned char character) { return std::iscntrl(character); }))
+        throw std::invalid_argument("Invalid name in field: " + key);
+    return value;
+}
+
+static double readNumber(const FieldMap& data, const std::string& key)
+{
+    const auto& field = requiredField(data, key);
+    if (!field.isNumber())
+        throw std::invalid_argument("Expected a number for " + key);
+    const double value = field;
+    if (!std::isfinite(value))
+        throw std::invalid_argument("Expected a finite number for " + key);
+    return value;
+}
+
+static FieldVector readCollection(const FieldMap& data, const std::string& key)
+{
+    const auto& field = requiredField(data, key);
+    if (!field.isVector())
+        throw std::invalid_argument("Expected an array for " + key);
+    const FieldVector values = field;
+    for (const auto& value : values)
+        if (!value.isMap())
+            throw std::invalid_argument("Expected objects in " + key);
+    return values;
+}
+
+void Initializer::initialize(const std::string& path)
+{
+    const Field root = Loader::loadJSON(path);
+    if (!root.isMap())
+        throw std::invalid_argument("Scenario must be an object");
+    const FieldMap data = root;
+    const auto stations = readCollection(data, "stations");
+    const auto segments = readCollection(data, "segments");
+    const auto trains = readCollection(data, "trains");
     initFactory();
-
-    FieldMap data = Loader::loadJSON("data.json");
-
-    initStations(data.at("stations"));
-    initSegments(data.at("segments"));
-    initTrainTypes(data.at("trainTypes"));
-    initTrains(data.at("trains"));
-    initJourneys(data.at("journey"));
+    initStations(stations);
+    initSegments(segments);
+    initTrains(trains);
 }
 
 void Initializer::initFactory()
 {
     Factory::instantiate();
     auto factory = Factory::instance();
-
-    factory->registerCreator<Station>(
-        "Station",
-        [](const FieldMap& m)
-        {
-            return Station(
-                m.at("name"),
-                m.at("x"),
-                m.at("y")
-            );
-        }
-    );
-
-    factory->registerCreator<Segment>(
-        "Segment",
-        [](const FieldMap& m)
-        {
-            const std::string nameA = m.at("a");
-            const std::string nameB = m.at("b");
-
-            Station* stationA = Registry<Station>::instance()->find(
-                [&](const Station& station) { return station.getName() == nameA; }
-            );
-            Station* stationB = Registry<Station>::instance()->find(
-                [&](const Station& station) { return station.getName() == nameB; }
-            );
-
-            if (!stationA || !stationB)
-                throw std::runtime_error("Segment references unknown station");
-
-            return Segment(
-                stationA,
-                stationB,
-                m.at("length"),
-                m.at("maxSpeed")
-            );
-        }
-    );
-
-    factory->registerCreator<Train>(
-        "Train",
-        [](const FieldMap& m)
-        {
-            static long trainId = 0;
-
-            const TrainType* trainType = Registry<TrainType>::instance()->find(
-                [&](const TrainType& type)
-                {
-                    return type.name == static_cast<std::string>(m.at("type"));
-                }
-            );
-            
-            Station* station = Registry<Station>::instance()->find(
-                [&](const Station& s)
-                {
-                    return s.getName() == static_cast<std::string>(m.at("station"));
-                }
-            );
-            
-            if (!station)
-                throw std::runtime_error("Train references unknown station");
-            if (!trainType)
-                throw std::runtime_error("Train references unknown type");
-
-            return Train(
-                ++trainId,
-                *trainType,
-                station
-            );
-        }
-    );
-
-    factory->registerCreator<Journey>(
-        "Journey",
-        [](const FieldMap& m)
-        {
-            const std::string nameStart = m.at("start");
-            const std::string nameEnd = m.at("end");
-
-            Station* start = Registry<Station>::instance()->find(
-                [&](const Station& station) { return station.getName() == nameStart; }
-            );
-            Station* end = Registry<Station>::instance()->find(
-                [&](const Station& station) { return station.getName() == nameEnd; }
-            );
-
-            if (!start || !end)
-                throw std::runtime_error("Journey references unknown station");
-
-            long departure = m.at("departure");
-            long dwell = m.at("dwell");
-
-            return Journey(
-                start,
-                end,
-                static_cast<uint32_t>(departure),
-                static_cast<uint32_t>(dwell)
-            );
-        }
-    );
+    factory->registerCreator<Station>("Station", [](const FieldMap& data)
+    {
+        return Station(readName(data, "name"), readNumber(data, "x"), readNumber(data, "y"));
+    });
+    factory->registerCreator<Segment>("Segment", [](const FieldMap& data)
+    {
+        const auto nameA = readName(data, "a");
+        const auto nameB = readName(data, "b");
+        auto* stations = Registry<Station>::instance();
+        auto* stationA = stations->find([&](const Station& station) { return station.getName() == nameA; });
+        auto* stationB = stations->find([&](const Station& station) { return station.getName() == nameB; });
+        if (!stationA || !stationB)
+            throw std::invalid_argument("Segment references unknown station: " + nameA + " - " + nameB);
+        return Segment(stationA, stationB, readNumber(data, "length"), readNumber(data, "maxSpeed"));
+    });
+    factory->registerCreator<Train>("Train", [](const FieldMap& data)
+    {
+        const auto name = readName(data, "name");
+        const auto nameStart = readName(data, "start");
+        const auto nameEnd = readName(data, "end");
+        auto* stations = Registry<Station>::instance();
+        auto* start = stations->find([&](const Station& station) { return station.getName() == nameStart; });
+        auto* end = stations->find([&](const Station& station) { return station.getName() == nameEnd; });
+        if (!start || !end)
+            throw std::invalid_argument("Train references unknown station: " + name);
+        const TrainParameters parameters{
+            readNumber(data, "mass"), readNumber(data, "maxSpeed"),
+            readNumber(data, "engineForce"), readNumber(data, "brakeForce"),
+            readNumber(data, "friction"), readNumber(data, "length")
+        };
+        static long trainId = 0;
+        return Train(++trainId, name, parameters, start, end,
+            readNumber(data, "departure"), readNumber(data, "pause"));
+    });
 }
 
 void Initializer::initStations(const FieldVector& data)
 {
-    Registry<Station>::instantiate();
     auto stations = Factory::instance()->createAll<Station>("Station", data);
+    std::unordered_set<std::string> names;
+    for (const auto& station : stations)
+        if (!names.insert(station.getName()).second)
+            throw std::invalid_argument("Duplicate station name: " + station.getName());
+    Registry<Station>::instantiate();
     Registry<Station>::instance()->add(stations);
 }
 
 void Initializer::initSegments(const FieldVector& data)
 {
-    Registry<Segment>::instantiate();
     auto segments = Factory::instance()->createAll<Segment>("Segment", data);
+    Registry<Segment>::instantiate();
     Registry<Segment>::instance()->add(segments);
-    for (auto& seg : *Registry<Segment>::instance())
+    for (auto& segment : *Registry<Segment>::instance())
     {
-        seg.getStationA()->addSegment(&seg);
-        seg.getStationB()->addSegment(&seg);
-    }
-}
-
-void Initializer::initTrainTypes(const FieldVector& data)
-{
-    Registry<TrainType>::instantiate();
-    for (const auto& field : data)
-    {
-        FieldMap m = field;
-        Registry<TrainType>::instance()->add(
-            TrainType{
-                m.at("name"),
-                m.at("mass"),
-                m.at("maxSpeed"),
-                m.at("engineForce"),
-                m.at("brakeForce"),
-                m.at("friction"),
-                m.at("length")
-            }
-        );
+        segment.getStationA()->addSegment(&segment);
+        segment.getStationB()->addSegment(&segment);
     }
 }
 
 void Initializer::initTrains(const FieldVector& data)
 {
-    Registry<Train>::instantiate();
     auto trains = Factory::instance()->createAll<Train>("Train", data);
+    Registry<Train>::instantiate();
     Registry<Train>::instance()->add(trains);
     for (auto& train : *Registry<Train>::instance())
         train.state_machine_init();
-}
-
-void Initializer::initJourneys(const FieldVector& data)
-{
-    Registry<Journey>::instantiate();
-    auto journeys = Factory::instance()->createAll<Journey>("Journey", data);
-    Registry<Journey>::instance()->add(journeys);
 }

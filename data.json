@@ -1,80 +1,259 @@
 {
     "stations": [
-        { "name": "Paris", "x": 261260, "y": 6250951 },
-        { "name": "Lyon", "x": 538243, "y": 5741627 },
-        { "name": "Marseille", "x": 598969, "y": 5354756 }
+        {
+            "name": "Paris",
+            "x": 261467,
+            "y": 6250025
+        },
+        {
+            "name": "Lyon",
+            "x": 539665,
+            "y": 5740227
+        },
+        {
+            "name": "Marseille",
+            "x": 599018,
+            "y": 5357280
+        },
+        {
+            "name": "Berlin",
+            "x": 1492853,
+            "y": 6895499
+        },
+        {
+            "name": "Frankfurt",
+            "x": 966717,
+            "y": 6466306
+        },
+        {
+            "name": "Zurich",
+            "x": 951782,
+            "y": 6002131
+        },
+        {
+            "name": "Rome",
+            "x": 1392755,
+            "y": 5144805
+        }
     ],
     "segments": [
-        { "a": "Paris", "b": "Lyon", "length": 427000, "maxSpeed": 88.9 },
-        { "a": "Lyon", "b": "Marseille", "length": 309000, "maxSpeed": 88.9 }
-    ],
-    "trainTypes": [
         {
-            "name": "TGV",
+            "a": "Paris",
+            "b": "Lyon",
+            "length": 429000,
+            "maxSpeed": 83.333333
+        },
+        {
+            "a": "Lyon",
+            "b": "Marseille",
+            "length": 325000,
+            "maxSpeed": 83.333333
+        },
+        {
+            "a": "Paris",
+            "b": "Frankfurt",
+            "length": 620000,
+            "maxSpeed": 88.888889
+        },
+        {
+            "a": "Paris",
+            "b": "Zurich",
+            "length": 660000,
+            "maxSpeed": 88.888889
+        },
+        {
+            "a": "Lyon",
+            "b": "Zurich",
+            "length": 450000,
+            "maxSpeed": 55.555556
+        },
+        {
+            "a": "Frankfurt",
+            "b": "Zurich",
+            "length": 460000,
+            "maxSpeed": 69.444444
+        },
+        {
+            "a": "Frankfurt",
+            "b": "Berlin",
+            "length": 650000,
+            "maxSpeed": 83.333333
+        },
+        {
+            "a": "Zurich",
+            "b": "Rome",
+            "length": 900000,
+            "maxSpeed": 83.333333
+        },
+        {
+            "a": "Lyon",
+            "b": "Rome",
+            "length": 1050000,
+            "maxSpeed": 83.333333
+        },
+        {
+            "a": "Marseille",
+            "b": "Rome",
+            "length": 1000000,
+            "maxSpeed": 44.444444
+        }
+    ],
+    "trains": [
+        {
+            "name": "TGV:PARIS-LYON",
             "mass": 400000,
             "maxSpeed": 88.9,
             "engineForce": 220000,
             "brakeForce": 320000,
             "friction": 0.015,
-            "length": 200
+            "length": 200,
+            "start": "Paris",
+            "end": "Lyon",
+            "departure": 28800,
+            "pause": 300
         },
         {
-            "name": "ICE",
+            "name": "TGV:MARSEILLE-PARIS",
             "mass": 410000,
             "maxSpeed": 83.3,
             "engineForce": 210000,
             "brakeForce": 300000,
             "friction": 0.018,
-            "length": 205
+            "length": 205,
+            "start": "Marseille",
+            "end": "Paris",
+            "departure": 32400,
+            "pause": 300
         },
         {
-            "name": "AVE",
-            "mass": 420000,
-            "maxSpeed": 86.1,
-            "engineForce": 200000,
-            "brakeForce": 280000,
-            "friction": 0.02,
-            "length": 200
-        },
-        {
-            "name": "FRECCIAROSSA",
-            "mass": 455000,
-            "maxSpeed": 83.3,
-            "engineForce": 240000,
-            "brakeForce": 340000,
+            "name": "ICE:FRANKFURT-BERLIN",
+            "mass": 400000,
+            "maxSpeed": 83.333333,
+            "engineForce": 220000,
+            "brakeForce": 320000,
             "friction": 0.015,
-            "length": 202
+            "length": 200,
+            "start": "Frankfurt",
+            "end": "Berlin",
+            "departure": 21600,
+            "pause": 180
         },
         {
-            "name": "EUROSTAR",
-            "mass": 752000,
-            "maxSpeed": 83.3,
-            "engineForce": 260000,
-            "brakeForce": 380000,
+            "name": "ICE:BERLIN-MARSEILLE",
+            "mass": 400000,
+            "maxSpeed": 83.333333,
+            "engineForce": 220000,
+            "brakeForce": 320000,
             "friction": 0.015,
-            "length": 394
-        }
-    ],
-    "trains": [
-        {
-            "type": "TGV",
-            "station": "Paris"
+            "length": 200,
+            "start": "Berlin",
+            "end": "Marseille",
+            "departure": 23400,
+            "pause": 300
         },
         {
-            "type": "TGV",
-            "station": "Lyon"
+            "name": "TGV:PARIS-ZURICH",
+            "mass": 400000,
+            "maxSpeed": 88.888889,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200,
+            "start": "Paris",
+            "end": "Zurich",
+            "departure": 37800,
+            "pause": 180
         },
         {
-            "type": "ICE",
-            "station": "Marseille"
-        }
-    ],
-    "journey": [
+            "name": "FR:LYON-ROME",
+            "mass": 400000,
+            "maxSpeed": 83.333333,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200,
+            "start": "Lyon",
+            "end": "Rome",
+            "departure": 39600,
+            "pause": 300
+        },
         {
+            "name": "EC:ZURICH-FRANKFURT",
+            "mass": 400000,
+            "maxSpeed": 69.444444,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200,
+            "start": "Zurich",
+            "end": "Frankfurt",
+            "departure": 45000,
+            "pause": 180
+        },
+        {
+            "name": "FR:ROME-PARIS",
+            "mass": 400000,
+            "maxSpeed": 83.333333,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200,
+            "start": "Rome",
+            "end": "Paris",
+            "departure": 50400,
+            "pause": 300
+        },
+        {
+            "name": "ICE:BERLIN-ZURICH",
+            "mass": 400000,
+            "maxSpeed": 83.333333,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200,
+            "start": "Berlin",
+            "end": "Zurich",
+            "departure": 61200,
+            "pause": 240
+        },
+        {
+            "name": "TGV:LYON-MARSEILLE",
+            "mass": 400000,
+            "maxSpeed": 83.333333,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200,
+            "start": "Lyon",
+            "end": "Marseille",
+            "departure": 64800,
+            "pause": 180
+        },
+        {
+            "name": "TGV:PARIS-MARSEILLE",
+            "mass": 400000,
+            "maxSpeed": 88.888889,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200,
             "start": "Paris",
             "end": "Marseille",
-            "departure": 28800,
-            "dwell": 300
+            "departure": 72000,
+            "pause": 300
+        },
+        {
+            "name": "EC:ROME-MARSEILLE",
+            "mass": 400000,
+            "maxSpeed": 55.555556,
+            "engineForce": 220000,
+            "brakeForce": 320000,
+            "friction": 0.015,
+            "length": 200,
+            "start": "Rome",
+            "end": "Marseille",
+            "departure": 79200,
+            "pause": 180
         }
     ]
 }

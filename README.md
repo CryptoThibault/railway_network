@@ -1,112 +1,64 @@
 # Railway Network
 
-Follow a train from **Paris to Marseille via Lyon**, with acceleration, cruising,
-braking, and passenger stops. A live dashboard shows the train moving between
-stations, its speed and state, and adjustable playback from 60× to 300×.
+C++20 railway simulation with a shared clock, daily schedules, acceleration,
+braking, intermediate stops, and train logs. The sample schedules are fictional.
 
 ## Build and run
 
-Requires Linux, Make, and a C++20 compiler. For the console simulation:
+Requires Linux, Make, and a C++20 compiler. Run from the repository root:
 
 ```sh
 make
 ./network
 ```
 
-Run from the repository root to load `data.json`. The executable is `./network`.
-Use Ctrl+C to stop, or `./network --speed 300` for faster playback. The `--speed`
-option accepts integers from 60 to 300.
+Playback defaults to 1200× with fixed 0.1-second steps. Use `--speed 300` to change
+speed and Ctrl+C to stop. `--once` runs every service once; `--days 3` runs through
+three calendar days. Both finite modes run without real-time delays.
+`--data-only` loads the scenario without simulating or clearing logs.
 
-The desktop dashboard also requires CMake 3.20+, pkg-config, X11/Xft development
-headers (`libx11-dev` and `libxft-dev` on Debian/Ubuntu), and an X11 or XWayland
-session. Tests require Python 3; configure with `-DBUILD_TESTING=OFF` to omit them.
+Services repeat at the same time each day, restarting at the origin without a
+simulated return trip. Overnight journeys continue normally; departures missed
+while travelling are skipped. Track occupation and collisions are not handled.
+
+Routes minimize estimated duration using Dijkstra: acceleration, train/segment
+speed limits, braking to rest, and pauses. Estimates assume constant forces and
+ignore resistance. Actual motion still applies resistance.
+
+`Scheduled`, intermediate `Waiting`, movement phases, and `Completed` are distinct
+states. Simulation events drive console departures, stops, and arrivals; there are
+no periodic progress messages. Registry objects must remain stable during a run.
+
+## Data and logs
+
+`data.json` contains stations, segments, and trains. Loading checks field types,
+required values, names, unique stations, references, and coordinate bounds.
+All physical data use SI units: m, s, kg, N, and m/s. City-centre markers use
+EPSG:3857 projected meters; segment lengths are separate railway travel distances.
+Sources, estimates, schema, and model details are in [Data reference](docs/data.md).
+
+`log/<train-name>.txt` records departure, arrival, and five-minute simulated samples
+between them, including station pauses. Records contain day/time, state, location,
+speed, and trip distance. Names are sanitized and collisions get an ID suffix.
+`log/` is recreated for every simulation, ignored by Git, and removed by `make clean`.
+Files stay open during a run. Console events use Logger; registry details use
+`Logger::debug()`, enabled by setting the level in `main` to `Debug`.
+
+## Structure and checks
+
+- `inc/`, `src/`: loading, train model, pathfinding, simulation, and presentation.
+- `tests/`: persistent Python and C++ regression checks.
+- `gui/`: previous demo dashboard; its protocol is not supplied by this executable.
+- `lib/`: existing generic library, outside the development scope.
+
+With CMake 3.20+, Python 3, pkg-config, and X11/Xft development headers:
 
 ```sh
 cmake -S . -B build
 cmake --build build --parallel
-./build/network_window
-```
-
-CMake invokes the existing root Makefile to build `network`, then builds the
-separate dashboard in `build/`. Both Makefiles remain unchanged. `make clean`
-removes console objects; `make fclean` also removes `network`. CMake's clean target
-cleans its own artifacts. The library retains its standalone build and examples.
-
-## Dashboard controls
-
-| Control | Action |
-| --- | --- |
-| Start / Stop or Enter | Start a fresh trip or stop the current one |
-| Pause / Resume or Space | Freeze or resume the train and clock without catching up |
-| 1h–5h buttons or keys 1–5 | Select simulated hours per real minute: 60×–300× |
-| Escape or window close | Close the dashboard and stop its simulation process |
-
-Speed can change during playback or while paused and is retained for the next run.
-Pause becomes available after the first simulation update. Stopping preserves the
-last values; restarting resets them.
-
-Fixed cards show speed, train state, simulated time, and the passenger-stop
-countdown. The schematic route shows all three named stations, platforms, and a
-train with a streamlined cab, carriage, and pantograph. Overall progress covers
-736 km; the active segment's distance is shown separately.
-
-The dashboard launches the root executable using the repository path recorded by
-CMake, so it works from another directory. Reconfigure after moving the repository.
-Launch and process failures appear in the status line. Console output remains
-available by running `./network` directly.
-
-## Simulation behavior
-
-The first train follows two segments: Paris–Lyon (427 km), then Lyon–Marseille
-(309 km). At **each station**, it spends **10 simulated minutes in `Waiting`** for
-passengers. It accelerates, cruises, and brakes on each segment. The simulation
-ends after the final passenger stop in Marseille; it does not start a return trip.
-Each station stop takes 10 real seconds at 60× or 2 seconds at 300×.
-
-Motion uses fixed 0.1-second simulated steps, processed in batches about every
-16 ms using a steady clock. Playback speed changes the clock rate, not the physics.
-Telemetry is emitted about ten times per second and on state or control changes.
-The dashboard validates complete telemetry lines, draws through a back buffer,
-and skips unchanged mouse-hover redraws. It sleeps until a window event when no
-process or pending output needs attention.
-
-Braking uses a stopping-distance estimate. Once stopped within two steps of travel
-at the speed limit, the train is placed at the station. This is an approximate
-controller, without signalling or collision handling. The route is selected
-explicitly; other trains and loaded journey schedules remain inactive.
-
-## Checks
-
-```sh
 ctest --test-dir build --output-on-failure
 ```
 
-Tests run without a display and cover both segments, all three passenger stops,
-final termination, speed and position bounds, identical physics across presets,
-live speed changes, pause/resume, telemetry parsing, and process lifecycle.
-
-For a deterministic console run without real-time delays:
-
-```sh
-./network --steps 200000
-```
-
-The step count is an upper limit; the run ends earlier if the route is complete.
-For a visual check, launch the dashboard, resize it, and exercise Start, Pause,
-Resume, the speed presets, and Stop while watching the station labels and train.
-
-## Project structure
-
-- `inc/`, `src/`: data loading, railway logic, and console entry point.
-- `gui/`: dashboard, process control, and telemetry decoding.
-- `tests/`: simulation and launcher checks.
-- `lib/`: generic utilities with their own Makefile and examples.
-- `data.json`: sample stations, segments, train types, trains, and journey schedules.
-
-Development guidelines are in [AGENTS.md](AGENTS.md).
-
-## Planned features
-
-- A geographical railway map.
-- Multiple active trains on a shared clock.
-- Journey schedules and automatic route planning.
+See [Testing](docs/testing.md) for coverage and sanitizer commands,
+[AGENTS.md](AGENTS.md) for development rules, and [TASKS.md](TASKS.md) for priorities.
+The long-term goal is an interactive European railway map.

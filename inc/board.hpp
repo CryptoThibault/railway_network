@@ -1,9 +1,9 @@
 #pragma once
+#include <cstddef>
 #include <vector>
 
 class Station;
 class Segment;
-struct Journey;
 
 struct Board
 {
@@ -11,6 +11,5 @@ struct Board
     Segment* currentSegment{};
     double segmentProgress{};
     std::vector<Segment*> path{};
-    size_t pathIndex{};
-    const Journey* journey{};
+    std::size_t pathIndex{};
 };
